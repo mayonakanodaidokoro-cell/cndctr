@@ -2,67 +2,105 @@
 <html>
 <head>
 <meta charset=UTF-8>
-<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>
 *{margin:0;box-sizing:border-box}
-body{background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;gap:20px;padding:20px;color:#fff}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:140px;height:140px;border-radius:12px}
-#status{font-size:11px;letter-spacing:.15em;color:#888;text-align:center;line-height:1.9;min-height:3em;white-space:pre}
-.row{display:flex;gap:12px;justify-content:center}
-.btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:14px 28px;font:14px monospace;letter-spacing:.1em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff}
+body{background:#0d0d1a;overflow:hidden;font-family:monospace;color:#fff}
+#stage{position:fixed;inset:0}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width:100%;height:100%}
+#panel{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 20px max(20px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(13,13,26,0.92) 30%)}
+#elapsed{font-size:22px;letter-spacing:.05em;color:#ff9;min-height:1.1em}
+#status{font-size:10px;letter-spacing:.15em;color:#999;text-align:center;line-height:1.8;white-space:pre;min-height:2.6em}
+.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:13px 24px;font:13px monospace;letter-spacing:.08em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff;transition:all .15s}
+#btnL{color:#f96;border-color:#f96}
+#btnR{color:#6bf;border-color:#6bf}
 #btnStart{color:#ff9;border-color:#ff9}
 #btnListen{color:#9cf;border-color:#9cf}
-.off{opacity:0.3}
-#elapsed{font-size:30px;letter-spacing:.05em;color:#ff9;min-height:1.2em;text-align:center}
-#badge{font-size:9px;letter-spacing:.2em;color:#4c4;background:#0a1a0a;border:1px solid #4c4;border-radius:4px;padding:3px 8px;opacity:0;transition:opacity .5s}
-#meter{width:200px;height:14px;background:#111;border-radius:3px;overflow:hidden;position:relative}
-#mbar{height:100%;width:0%;background:linear-gradient(90deg,#9cf,#9f9,#fc6,#f66);border-radius:3px;transition:width .03s}
-#thresh{position:absolute;top:0;height:100%;width:2px;background:#f44;left:25%}
-#dbg{font-size:10px;color:#666;font-family:monospace}
+.sel{background:rgba(120,170,255,0.2)!important;transform:scale(1.05)}
+.off{opacity:0.3;pointer-events:none}
+.hidden{display:none}
+#meter{width:180px;height:8px;background:#111;border-radius:3px;overflow:hidden;position:relative}
+#mbar{height:100%;width:0%;background:linear-gradient(90deg,#9cf,#9f9,#fc6,#f66)}
+#thresh{position:absolute;top:0;height:100%;width:2px;background:#f44;left:8%}
 </style>
 </head>
 <body>
-<canvas id=C width=16 height=16></canvas>
-<div id=elapsed>--:--.---</div>
-<div id=meter><div id=mbar></div><div id=thresh></div></div>
-<div id=dbg>音量: 0.000 / しきい値: 0.080</div>
-<div id=status>どちらかボタンを押してください</div>
-<div class=row>
-  <button class=btn id=btnStart>&#128266; スタート</button>
-  <button class=btn id=btnListen>&#127908; 待機</button>
+<div id=stage><canvas id=C></canvas></div>
+<div id=panel>
+  <div id=elapsed></div>
+  <div id=meter class=hidden><div id=mbar></div><div id=thresh></div></div>
+  <div id=status>① 画面の左右を選んでください</div>
+  <div class=row id=sideRow>
+    <button class=btn id=btnL>&#9664; 左の画面</button>
+    <button class=btn id=btnR>右の画面 &#9654;</button>
+  </div>
+  <div class=row id=syncRow>
+    <button class=btn id=btnStart>&#128266; スタート</button>
+    <button class=btn id=btnListen>&#127908; 待機</button>
+  </div>
 </div>
-<div id=badge>&#9889; 音で同期</div>
 <script>
 var S="0000111111000000000111111110000000111111111100000111111111111000011511111151100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000000001111000000000001111110000000001111111100000001111111111000001111511511110000111331111331000011133111133100001111114411110000111111111111000001111111111000000011111111000000000111111000000000001111000000000000011000000000000000000000000000000000000000000000000000000000000111111000000001111111111000001111111111111001115111111511110011331111113310001133111111331000111111441111100011111111111110000111111111110000001111111110000000011111100000000000111100000000000000000000000000000000000000000000000000000000000011110000000000011111100000000011111111000000011111111110000011115115111100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000";
 var COLORS=["","#ffd84d","#f0b429","#1a1a2a","#ff9eb5","#fff7cc"];
+var SW=16,SH=16;
 var cv=document.getElementById("C"),ctx=cv.getContext("2d");
-var t0=null,listening=false;
+var W,H,SC;
+var t0=null,listening=false,side=-1;
+var THRESHOLD=0.08;
 var statusEl=document.getElementById("status");
-var dbgEl=document.getElementById("dbg");
-var THRESHOLD=0.08; // 下げた
 
-function drawSprite(f){
-  ctx.clearRect(0,0,16,16);
-  for(var r=0;r<16;r++)for(var c=0;c<16;c++){
-    var v=+S[f*256+r*16+c];
-    if(v){ctx.fillStyle=COLORS[v];ctx.fillRect(c,r,1,1);}
-  }
+function resize(){
+  W=window.innerWidth;H=window.innerHeight;
+  cv.width=W;cv.height=H;
+  SC=Math.max(2,Math.floor(Math.min(W,H)/26));
 }
-function pad2(n){return("0"+n).slice(-2);}
-function pad3(n){return("00"+n).slice(-3);}
-function loop(){
-  var e=t0?Date.now()-t0:0;
-  var f=t0?Math.floor(e/120)%4:0;
-  drawSprite(f);
-  if(t0){
-    cv.style.transform="translateY("+(Math.round(Math.sin(e/500*Math.PI*2)*4))+"px)";
-    var ms=e%1000,s=Math.floor(e/1000)%60,m=Math.floor(e/60000);
-    document.getElementById("elapsed").textContent=pad2(m)+":"+pad2(s)+"."+pad3(ms);
-  }
-  requestAnimationFrame(loop);
-}
-loop();
+window.addEventListener("resize",resize);resize();
 
+// ── 画面選択 ──
+function setSide(s){
+  side=s;
+  document.getElementById("btnL").className="btn"+(s===0?" sel":"");
+  document.getElementById("btnR").className="btn"+(s===1?" sel":"");
+  statusEl.textContent="② スタート or 待機を押してください";
+}
+document.getElementById("btnL").addEventListener("click",function(){setSide(0);});
+document.getElementById("btnR").addEventListener("click",function(){setSide(1);});
+
+// ── 描画ループ ──
+var CYCLE=4000;
+function draw(){
+  // 背景
+  var sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,"#0d0d1a");sky.addColorStop(1,"#16182e");
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+  if(t0!==null && side>=0){
+    var n=Date.now()-t0;
+    var bw=SW*SC;
+    var tt=(n%CYCLE)/CYCLE;
+    var tri=tt<0.5?tt*2:2-tt*2;
+    var eased=tri<0.5?2*tri*tri:1-Math.pow(-2*tri+2,2)/2;
+    var span=2*W-bw;
+    var gx=Math.floor(eased*span);
+    var goingRight=tt<0.5;
+    var gy=Math.floor(H*0.4+Math.sin(n/500*Math.PI*2)*H*0.05);
+    var f=Math.floor(n/120)%4;
+    var lx=side===1?gx-W:gx;
+    for(var r=0;r<SH;r++)for(var c=0;c<SW;c++){
+      var sc=goingRight?c:(SW-1-c);
+      var v=+S[f*SW*SH+r*SW+sc];
+      if(v){ctx.fillStyle=COLORS[v];ctx.fillRect(lx+c*SC,gy+r*SC,SC,SC);}
+    }
+    // 経過時間
+    var ms=n%1000,s=Math.floor(n/1000)%60,m=Math.floor(n/60000);
+    document.getElementById("elapsed").textContent=("0"+m).slice(-2)+":"+("0"+s).slice(-2)+"."+("00"+ms).slice(-3);
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+// ── オーディオ ──
 var actx=null;
 function ac(){
   if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
@@ -78,13 +116,12 @@ function playBeep(){
   g.gain.linearRampToValueAtTime(0,a.currentTime+0.15);
   o.start(a.currentTime);o.stop(a.currentTime+0.2);
 }
-
 function startMic(isSender){
   if(listening)return Promise.resolve();
   listening=true;
+  document.getElementById("meter").classList.remove("hidden");
   return navigator.mediaDevices.getUserMedia({
-    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
-    video:false
+    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
   }).then(function(stream){
     var a=ac(),src=a.createMediaStreamSource(stream),an=a.createAnalyser();
     an.fftSize=512;src.connect(an);
@@ -95,16 +132,15 @@ function startMic(isSender){
       an.getByteTimeDomainData(buf);
       var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
       var rms=Math.sqrt(sum/buf.length);
-      var pct=Math.min(100,rms*400);
-      document.getElementById("mbar").style.width=pct+"%";
-      dbgEl.textContent="音量: "+rms.toFixed(3)+" / しきい値: "+THRESHOLD.toFixed(3);
+      document.getElementById("mbar").style.width=Math.min(100,rms*400)+"%";
       if(rms>THRESHOLD){
         done=true;listening=false;
         t0=Date.now();
         stream.getTracks().forEach(function(t){t.stop();});
-        statusEl.textContent="\u26a1 同期完了！";
-        var b=document.getElementById("badge");b.style.opacity="1";
-        setTimeout(function(){b.style.opacity="0";},3000);
+        statusEl.textContent="\u26a1 同期完了！2画面を並べてね";
+        document.getElementById("meter").classList.add("hidden");
+        document.getElementById("sideRow").classList.add("hidden");
+        document.getElementById("syncRow").classList.add("hidden");
       } else { requestAnimationFrame(detect); }
     }
     detect();
@@ -115,16 +151,14 @@ function startMic(isSender){
 }
 
 document.getElementById("btnStart").addEventListener("click",function(){
-  ac();
-  this.classList.add("off");
+  if(side<0){statusEl.textContent="先に左右を選んでください";return;}
+  ac();this.classList.add("off");
   statusEl.textContent="マイク起動中…";
-  startMic(true).then(function(){
-    setTimeout(playBeep,250); // マイク準備後に鳴らす
-  });
+  startMic(true).then(function(){setTimeout(playBeep,250);});
 });
 document.getElementById("btnListen").addEventListener("click",function(){
-  ac();
-  this.classList.add("off");
+  if(side<0){statusEl.textContent="先に左右を選んでください";return;}
+  ac();this.classList.add("off");
   statusEl.textContent="マイク起動中…";
   startMic(false);
 });
