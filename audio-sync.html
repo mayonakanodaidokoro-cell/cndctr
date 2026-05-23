@@ -5,24 +5,27 @@
 <meta name=viewport content="width=device-width,initial-scale=1">
 <style>
 *{margin:0;box-sizing:border-box}
-body{background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;gap:24px;padding:20px;color:#fff}
-canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:160px;height:160px;border-radius:12px}
-#status{font-size:11px;letter-spacing:.2em;color:#888;text-align:center;line-height:2;min-height:3em;white-space:pre}
+body{background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;gap:20px;padding:20px;color:#fff}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:140px;height:140px;border-radius:12px}
+#status{font-size:11px;letter-spacing:.15em;color:#888;text-align:center;line-height:1.9;min-height:3em;white-space:pre}
 .row{display:flex;gap:12px;justify-content:center}
 .btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:14px 28px;font:14px monospace;letter-spacing:.1em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff}
 #btnStart{color:#ff9;border-color:#ff9}
 #btnListen{color:#9cf;border-color:#9cf}
 .off{opacity:0.3}
-#elapsed{font-size:32px;letter-spacing:.05em;color:#ff9;min-height:1.2em;text-align:center}
+#elapsed{font-size:30px;letter-spacing:.05em;color:#ff9;min-height:1.2em;text-align:center}
 #badge{font-size:9px;letter-spacing:.2em;color:#4c4;background:#0a1a0a;border:1px solid #4c4;border-radius:4px;padding:3px 8px;opacity:0;transition:opacity .5s}
-#meter{width:160px;height:3px;background:#111;border-radius:2px;overflow:hidden}
-#mbar{height:100%;width:0%;background:#9cf;border-radius:2px}
+#meter{width:200px;height:14px;background:#111;border-radius:3px;overflow:hidden;position:relative}
+#mbar{height:100%;width:0%;background:linear-gradient(90deg,#9cf,#9f9,#fc6,#f66);border-radius:3px;transition:width .03s}
+#thresh{position:absolute;top:0;height:100%;width:2px;background:#f44;left:25%}
+#dbg{font-size:10px;color:#666;font-family:monospace}
 </style>
 </head>
 <body>
 <canvas id=C width=16 height=16></canvas>
 <div id=elapsed>--:--.---</div>
-<div id=meter><div id=mbar></div></div>
+<div id=meter><div id=mbar></div><div id=thresh></div></div>
+<div id=dbg>音量: 0.000 / しきい値: 0.080</div>
 <div id=status>どちらかボタンを押してください</div>
 <div class=row>
   <button class=btn id=btnStart>&#128266; スタート</button>
@@ -35,6 +38,8 @@ var COLORS=["","#ffd84d","#f0b429","#1a1a2a","#ff9eb5","#fff7cc"];
 var cv=document.getElementById("C"),ctx=cv.getContext("2d");
 var t0=null,listening=false;
 var statusEl=document.getElementById("status");
+var dbgEl=document.getElementById("dbg");
+var THRESHOLD=0.08; // 下げた
 
 function drawSprite(f){
   ctx.clearRect(0,0,16,16);
@@ -64,37 +69,40 @@ function ac(){
   if(actx.state==="suspended")actx.resume();
   return actx;
 }
-
 function playBeep(){
   var a=ac(),o=a.createOscillator(),g=a.createGain();
   o.connect(g);g.connect(a.destination);
   o.frequency.value=1000;
   g.gain.setValueAtTime(0,a.currentTime);
-  g.gain.linearRampToValueAtTime(0.6,a.currentTime+0.01);
-  g.gain.linearRampToValueAtTime(0,a.currentTime+0.08);
-  o.start(a.currentTime);o.stop(a.currentTime+0.12);
+  g.gain.linearRampToValueAtTime(0.8,a.currentTime+0.01);
+  g.gain.linearRampToValueAtTime(0,a.currentTime+0.15);
+  o.start(a.currentTime);o.stop(a.currentTime+0.2);
 }
 
 function startMic(isSender){
   if(listening)return Promise.resolve();
   listening=true;
-  return navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
+  return navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},
+    video:false
+  }).then(function(stream){
     var a=ac(),src=a.createMediaStreamSource(stream),an=a.createAnalyser();
-    an.fftSize=256;src.connect(an);
-    var buf=new Uint8Array(an.frequencyBinCount),done=false;
-    statusEl.textContent=isSender?"鳴らしました\n自端末の音を検出中…":"音を待っています\nスタート端末でビープを鳴らして";
+    an.fftSize=512;src.connect(an);
+    var buf=new Uint8Array(an.fftSize),done=false;
+    statusEl.textContent=isSender?"鳴らしました\n音を検出中…":"音を待っています\nスタート端末でビープを";
     function detect(){
-      if(done)return;
+      if(done){listening=false;return;}
       an.getByteTimeDomainData(buf);
       var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
       var rms=Math.sqrt(sum/buf.length);
-      document.getElementById("mbar").style.width=Math.min(100,rms*300)+"%";
-      if(rms>0.25){
+      var pct=Math.min(100,rms*400);
+      document.getElementById("mbar").style.width=pct+"%";
+      dbgEl.textContent="音量: "+rms.toFixed(3)+" / しきい値: "+THRESHOLD.toFixed(3);
+      if(rms>THRESHOLD){
         done=true;listening=false;
         t0=Date.now();
         stream.getTracks().forEach(function(t){t.stop();});
         statusEl.textContent="\u26a1 同期完了！";
-        document.getElementById("mbar").style.width="0%";
         var b=document.getElementById("badge");b.style.opacity="1";
         setTimeout(function(){b.style.opacity="0";},3000);
       } else { requestAnimationFrame(detect); }
@@ -106,17 +114,14 @@ function startMic(isSender){
   });
 }
 
-// タップ内で AudioContext を起動するのが iOS では必須
 document.getElementById("btnStart").addEventListener("click",function(){
-  ac(); // ユーザー操作内で起動
+  ac();
   this.classList.add("off");
   statusEl.textContent="マイク起動中…";
   startMic(true).then(function(){
-    // マイク起動後にビープ（タップから繋がった文脈で鳴らす）
-    playBeep();
+    setTimeout(playBeep,250); // マイク準備後に鳴らす
   });
 });
-
 document.getElementById("btnListen").addEventListener("click",function(){
   ac();
   this.classList.add("off");
