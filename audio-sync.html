@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;box-sizing:border-box}
+body{background:#0d0d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;gap:24px;padding:20px;color:#fff}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;width:160px;height:160px;border-radius:12px}
+#status{font-size:11px;letter-spacing:.2em;color:#555;text-align:center;line-height:2;min-height:3em;white-space:pre}
+.row{display:flex;gap:12px;justify-content:center}
+.btn{background:#111;border:1px solid #333;border-radius:10px;padding:12px 24px;font:13px monospace;letter-spacing:.1em;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+#btnStart{color:#ff9;border-color:#ff9}
+#btnListen{color:#9cf;border-color:#9cf}
+.off{opacity:0.3;pointer-events:none}
+#elapsed{font-size:32px;letter-spacing:.05em;color:#ff9;min-height:1.2em;text-align:center}
+#badge{font-size:9px;letter-spacing:.2em;color:#4c4;background:#0a1a0a;border:1px solid #4c4;border-radius:4px;padding:3px 8px;opacity:0;transition:opacity .5s}
+#meter{width:160px;height:3px;background:#111;border-radius:2px;overflow:hidden}
+#mbar{height:100%;width:0%;background:#9cf;border-radius:2px}
+</style>
+</head>
+<body>
+<canvas id=C width=16 height=16></canvas>
+<div id=elapsed>--:--.---</div>
+<div id=meter><div id=mbar></div></div>
+<div id=status>どちらかボタンを押してください</div>
+<div class=row>
+  <button class=btn id=btnStart onclick="doStart()">&#128266; スタート</button>
+  <button class=btn id=btnListen onclick="doListen()">&#127908; 待機</button>
+</div>
+<div id=badge>&#9889; 音で同期</div>
+<script>
+var S="0000111111000000000111111110000000111111111100000111111111111000011511111151100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000000001111000000000001111110000000001111111100000001111111111000001111511511110000111331111331000011133111133100001111114411110000111111111111000001111111111000000011111111000000000111111000000000001111000000000000011000000000000000000000000000000000000000000000000000000000000111111000000001111111111000001111111111111001115111111511110011331111113310001133111111331000111111441111100011111111111110000111111111110000001111111110000000011111100000000000111100000000000000000000000000000000000000000000000000000000000011110000000000011111100000000011111111000000011111111110000011115115111100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000";
+var COLORS=["","#ffd84d","#f0b429","#1a1a2a","#ff9eb5","#fff7cc"];
+var cv=document.getElementById("C"),ctx=cv.getContext("2d");
+var t0=null,listening=false;
+
+function drawSprite(f){
+  ctx.clearRect(0,0,16,16);
+  for(var r=0;r<16;r++)for(var c=0;c<16;c++){
+    var v=+S[f*256+r*16+c];
+    if(v){ctx.fillStyle=COLORS[v];ctx.fillRect(c,r,1,1);}
+  }
+}
+function pad2(n){return("0"+n).slice(-2);}
+function pad3(n){return("00"+n).slice(-3);}
+
+function loop(){
+  var e=t0?Date.now()-t0:0;
+  var f=t0?Math.floor(e/120)%4:0;
+  drawSprite(f);
+  if(t0){
+    cv.style.transform="translateY("+(Math.round(Math.sin(e/500*Math.PI*2)*4))+"px)";
+    var ms=e%1000,s=Math.floor(e/1000)%60,m=Math.floor(e/60000);
+    document.getElementById("elapsed").textContent=pad2(m)+":"+pad2(s)+"."+pad3(ms);
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+
+var actx=null;
+function ac(){return actx=actx||new(window.AudioContext||window.webkitAudioContext)();}
+
+function playBeep(){
+  var a=ac(),o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);
+  o.frequency.value=1000;
+  g.gain.setValueAtTime(0,a.currentTime);
+  g.gain.linearRampToValueAtTime(0.6,a.currentTime+0.01);
+  g.gain.linearRampToValueAtTime(0,a.currentTime+0.08);
+  o.start(a.currentTime);o.stop(a.currentTime+0.12);
+}
+
+function startMic(isSender){
+  if(listening)return;
+  listening=true;
+  navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(stream){
+    var a=ac(),src=a.createMediaStreamSource(stream),an=a.createAnalyser();
+    an.fftSize=256;src.connect(an);
+    var buf=new Uint8Array(an.frequencyBinCount),done=false;
+    document.getElementById("status").textContent=isSender?"&#128266; 鳴らしました
+自端末の音を検出中…":"&#127908; 音を待っています
+スタート端末でビープを鳴らして";
+    function detect(){
+      if(done)return;
+      an.getByteTimeDomainData(buf);
+      var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
+      var rms=Math.sqrt(sum/buf.length);
+      document.getElementById("mbar").style.width=Math.min(100,rms*300)+"%";
+      if(rms>0.25){
+        done=true;listening=false;
+        t0=Date.now();
+        stream.getTracks().forEach(function(t){t.stop();});
+        document.getElementById("status").textContent="&#9889; 同期完了！";
+        document.getElementById("mbar").style.width="0%";
+        var b=document.getElementById("badge");b.style.opacity="1";
+        setTimeout(function(){b.style.opacity="0";},3000);
+      } else { requestAnimationFrame(detect); }
+    }
+    detect();
+  }).catch(function(e){
+    listening=false;
+    document.getElementById("status").textContent="マイクエラー: "+e.message;
+  });
+}
+
+function doStart(){
+  document.getElementById("btnStart").classList.add("off");
+  document.getElementById("status").textContent="マイク起動中…";
+  startMic(true);
+  setTimeout(playBeep,300);
+}
+function doListen(){
+  document.getElementById("btnListen").classList.add("off");
+  startMic(false);
+}
+</script>
+</body>
+</html>
