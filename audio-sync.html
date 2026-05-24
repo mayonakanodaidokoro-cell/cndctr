@@ -81,10 +81,10 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
     <button class=btn id=btnListen>&#127908; 待機</button>
     <button class=btn id=btnCancel>戻る</button>
   </div>
-  <div class="row hidden" id=adjustRow style="align-items:center; gap:8px;">
-    <button class=btn id=btnDec5 style="padding:8px 16px; font-size:12px;">-5ms</button>
-    <span id="offsetValue" style="font-size:14px; color:#ff9; min-width:64px; text-align:center; font-weight:bold;">+0ms</span>
-    <button class=btn id=btnInc5 style="padding:8px 16px; font-size:12px;">+5ms</button>
+  <div class="row hidden" id=adjustRow style="align-items:center; gap:12px; background:rgba(0,0,0,0.4); padding:10px 18px; border-radius:20px; border:1px solid rgba(255,255,255,0.05)">
+    <span style="font-size:11px; color:#999; letter-spacing:0.05em;">遅延調整:</span>
+    <input type="range" id="offsetSlider" min="-150" max="150" step="2" value="0" style="width:130px; accent-color:#9cf; cursor:pointer;">
+    <span id="offsetValue" style="font-size:12px; color:#ff9; min-width:54px; text-align:right; font-weight:bold; font-family:monospace;">+0ms</span>
   </div>
   <div class="row hidden" id=resetRow>
     <button class=btn id=btnReset>&#8634; メニューに戻る</button>
@@ -235,7 +235,11 @@ function playNoteAt(freq, time, duration) {
 function scheduleMusic(loopIndex) {
   var loopDuration = 24.0; // 24秒で1ループ
   var loopStartRealTime = t0 + loopIndex * loopDuration * 1000 + delayOffset;
-  var loopStartAcTime = ac().currentTime + (loopStartRealTime - Date.now()) / 1000;
+  
+  // スピーカー出力の遅延（outputLatency / baseLatency）を引いて物理的な音の発生タイミングを補正
+  var a = ac();
+  var outLat = a.outputLatency || a.baseLatency || 0.015;
+  var loopStartAcTime = a.currentTime + (loopStartRealTime - Date.now()) / 1000 - outLat;
   
   if (side === 0) {
     melodyScore.forEach(function(note) {
@@ -432,7 +436,10 @@ function draw(){
     }
 
     // 経過時間
-    var ms=n%1000,s=Math.floor(n/1000)%60,m=Math.floor(n/60000);
+    var elapsedInt = Math.floor(n);
+    var ms = elapsedInt % 1000;
+    var s = Math.floor(elapsedInt / 1000) % 60;
+    var m = Math.floor(elapsedInt / 60000);
     document.getElementById("elapsed").textContent=("0"+m).slice(-2)+":"+("0"+s).slice(-2)+"."+("00"+ms).slice(-3);
   }
   requestAnimationFrame(draw);
@@ -507,10 +514,11 @@ function startMic(){
         // 1回目の拍手を待つ
         if (maxVal > THRESHOLD) {
           state = 1;
-          // ピーク位置から正確な過去の発生時刻を算出して t1 に設定
+          // ピーク位置＋マイク入力の固有遅延（baseLatencyなど）から、物理的な拍手の発生時刻を逆算して t1 に設定
           var sampleRate = a.sampleRate;
           var dt = (buf.length - 1 - peakIdx) / sampleRate;
-          t1 = now - dt * 1000;
+          var inLat = (a.baseLatency || 0.005) + 0.010; // ハードウェアバッファ等のオーバーヘッド(約10ms)を考慮
+          t1 = now - (dt + inLat) * 1000;
           
           coolDownUntil = now + 100; // 最低100msのクールダウン
           statusEl.textContent = "1回目の拍力を検出！\n音の減衰を待っています...";
@@ -526,7 +534,8 @@ function startMic(){
         if (maxVal > THRESHOLD) {
           var sampleRate = a.sampleRate;
           var dt = (buf.length - 1 - peakIdx) / sampleRate;
-          var exactNow = now - dt * 1000;
+          var inLat = (a.baseLatency || 0.005) + 0.010;
+          var exactNow = now - (dt + inLat) * 1000;
           var interval = exactNow - t1;
           
           if (interval <= 2000) {
@@ -586,6 +595,7 @@ function showSetup(m) {
   side = -1;
   listening = false;
   delayOffset = 0;
+  document.getElementById("offsetSlider").value = 0;
   document.getElementById("offsetValue").textContent = "+0ms";
   document.getElementById("btnL").className="btn";
   document.getElementById("btnR").className="btn";
@@ -605,6 +615,7 @@ function returnToMenu() {
   listening = false;
   side = -1;
   delayOffset = 0;
+  document.getElementById("offsetSlider").value = 0;
   document.getElementById("offsetValue").textContent = "+0ms";
   stopAllNotes();
   if (micStream) {
@@ -641,10 +652,11 @@ document.getElementById("btnReset").addEventListener("click",function(){
   returnToMenu();
 });
 
-// ── ディレイオフセットリアルタイム調整 ──
-function adjustOffset(amount) {
-  delayOffset += amount;
-  document.getElementById("offsetValue").textContent = (delayOffset >= 0 ? "+" : "") + delayOffset + "ms";
+// ── ディレイオフセットリアルタイム調整（スライダー） ──
+document.getElementById("offsetSlider").addEventListener("input", function(e) {
+  var val = parseInt(e.target.value);
+  delayOffset = val;
+  document.getElementById("offsetValue").textContent = (val >= 0 ? "+" : "") + val + "ms";
   
   if (t0 !== null) {
     stopAllNotes();
@@ -653,10 +665,7 @@ function adjustOffset(amount) {
     var currentLoop = Math.floor((elapsed - delayOffset) / 24000);
     scheduledLoops = Math.max(0, currentLoop);
   }
-}
-
-document.getElementById("btnDec5").addEventListener("click", function() { adjustOffset(-5); });
-document.getElementById("btnInc5").addEventListener("click", function() { adjustOffset(5); });
+});
 </script>
 </body>
 </html>
