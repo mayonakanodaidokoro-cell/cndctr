@@ -81,6 +81,11 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
     <button class=btn id=btnListen>&#127908; 待機</button>
     <button class=btn id=btnCancel>戻る</button>
   </div>
+  <div class="row hidden" id=adjustRow style="align-items:center; gap:8px;">
+    <button class=btn id=btnDec5 style="padding:8px 16px; font-size:12px;">-5ms</button>
+    <span id="offsetValue" style="font-size:14px; color:#ff9; min-width:64px; text-align:center; font-weight:bold;">+0ms</span>
+    <button class=btn id=btnInc5 style="padding:8px 16px; font-size:12px;">+5ms</button>
+  </div>
   <div class="row hidden" id=resetRow>
     <button class=btn id=btnReset>&#8634; メニューに戻る</button>
   </div>
@@ -102,6 +107,7 @@ var activeOscillators=[];
 var scheduledLoops=0;
 var pulse=0; // 歌唱時のキャラクターの脈動用
 var particles=[]; // 音符パーティクル
+var delayOffset=0; // 手動調整用ディレイオフセット（ミリ秒）
 
 function resize(){
   W=window.innerWidth;H=window.innerHeight;
@@ -228,7 +234,7 @@ function playNoteAt(freq, time, duration) {
 
 function scheduleMusic(loopIndex) {
   var loopDuration = 24.0; // 24秒で1ループ
-  var loopStartRealTime = t0 + loopIndex * loopDuration * 1000;
+  var loopStartRealTime = t0 + loopIndex * loopDuration * 1000 + delayOffset;
   var loopStartAcTime = ac().currentTime + (loopStartRealTime - Date.now()) / 1000;
   
   if (side === 0) {
@@ -473,7 +479,7 @@ function startMic(){
     statusEl.textContent="音を待っています\n拍手を2回してください";
     
     function detect(){
-      if(done){listening=false;return;}
+      if(done || !listening){listening=false;return;}
       
       var now = Date.now();
       // 1回目の拍手から2秒以上経過したらタイムアウトしてやり直し
@@ -487,9 +493,13 @@ function startMic(){
       
       // 平均 (RMS) ではなく、瞬間的な最大振幅 (ピーク) を取得
       var maxVal=0;
+      var peakIdx=0;
       for(var i=0;i<buf.length;i++){
         var v=Math.abs(buf[i]-128)/128;
-        if(v>maxVal) maxVal=v;
+        if(v>maxVal) {
+          maxVal=v;
+          peakIdx=i;
+        }
       }
       document.getElementById("mbar").style.width=Math.min(100,maxVal*100)+"%";
       
@@ -497,7 +507,11 @@ function startMic(){
         // 1回目の拍手を待つ
         if (maxVal > THRESHOLD) {
           state = 1;
-          t1 = now;
+          // ピーク位置から正確な過去の発生時刻を算出して t1 に設定
+          var sampleRate = a.sampleRate;
+          var dt = (buf.length - 1 - peakIdx) / sampleRate;
+          t1 = now - dt * 1000;
+          
           coolDownUntil = now + 100; // 最低100msのクールダウン
           statusEl.textContent = "1回目の拍力を検出！\n音の減衰を待っています...";
         }
@@ -510,11 +524,15 @@ function startMic(){
       } else if (state === 2) {
         // 2回目の拍手を待つ
         if (maxVal > THRESHOLD) {
-          var interval = now - t1;
+          var sampleRate = a.sampleRate;
+          var dt = (buf.length - 1 - peakIdx) / sampleRate;
+          var exactNow = now - dt * 1000;
+          var interval = exactNow - t1;
+          
           if (interval <= 2000) {
             done=true;
             listening=false;
-            t0=now; // 2回目の拍手のタイミングで同期開始
+            t0=exactNow; // 2回目の拍手の正確なタイミングで同期開始
             scheduledLoops=0;
             
             // 間隔に合わせてスピード判定（3段階、Moving Mode用）
@@ -532,11 +550,14 @@ function startMic(){
             
             stream.getTracks().forEach(function(t){t.stop();});
             micStream = null;
-            statusEl.textContent="⚡ 同期完了！\n間隔: "+interval+"ms (スピード: "+speedName+")\n2画面を並べてね";
+            statusEl.textContent="⚡ 同期完了！\n間隔: "+Math.round(interval)+"ms (スピード: "+speedName+")\n2画面を並べてね";
             document.getElementById("meter").classList.add("hidden");
             document.getElementById("sideRow").classList.add("hidden");
             document.getElementById("syncRow").classList.add("hidden");
             document.getElementById("resetRow").classList.remove("hidden");
+            if (mode === "singing") {
+              document.getElementById("adjustRow").classList.remove("hidden");
+            }
           } else {
             // 例外処理（タイムアウト等）
             state = 0;
@@ -564,6 +585,8 @@ function showSetup(m) {
   t0 = null;
   side = -1;
   listening = false;
+  delayOffset = 0;
+  document.getElementById("offsetValue").textContent = "+0ms";
   document.getElementById("btnL").className="btn";
   document.getElementById("btnR").className="btn";
   document.getElementById("btnListen").className="btn";
@@ -572,6 +595,7 @@ function showSetup(m) {
   document.getElementById("sideRow").classList.remove("hidden");
   document.getElementById("syncRow").classList.remove("hidden");
   document.getElementById("resetRow").classList.add("hidden");
+  document.getElementById("adjustRow").classList.add("hidden");
   document.getElementById("meter").classList.add("hidden");
 }
 
@@ -580,13 +604,22 @@ function returnToMenu() {
   t0 = null;
   listening = false;
   side = -1;
+  delayOffset = 0;
+  document.getElementById("offsetValue").textContent = "+0ms";
   stopAllNotes();
   if (micStream) {
     micStream.getTracks().forEach(function(t){t.stop();});
     micStream = null;
   }
+  if (actx) {
+    try {
+      actx.close();
+    } catch(e) {}
+    actx = null;
+  }
   document.getElementById("menuView").classList.remove("hidden");
   document.getElementById("panel").classList.add("hidden");
+  document.getElementById("adjustRow").classList.add("hidden");
   particles = [];
 }
 
@@ -607,6 +640,23 @@ document.getElementById("btnCancel").addEventListener("click", function() {
 document.getElementById("btnReset").addEventListener("click",function(){
   returnToMenu();
 });
+
+// ── ディレイオフセットリアルタイム調整 ──
+function adjustOffset(amount) {
+  delayOffset += amount;
+  document.getElementById("offsetValue").textContent = (delayOffset >= 0 ? "+" : "") + delayOffset + "ms";
+  
+  if (t0 !== null) {
+    stopAllNotes();
+    var elapsed = Date.now() - t0;
+    var loopDuration = 24.0;
+    var currentLoop = Math.floor((elapsed - delayOffset) / 24000);
+    scheduledLoops = Math.max(0, currentLoop);
+  }
+}
+
+document.getElementById("btnDec5").addEventListener("click", function() { adjustOffset(-5); });
+document.getElementById("btnInc5").addEventListener("click", function() { adjustOffset(5); });
 </script>
 </body>
 </html>
