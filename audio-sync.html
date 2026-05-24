@@ -15,7 +15,6 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
 .btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:13px 24px;font:13px monospace;letter-spacing:.08em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff;transition:all .15s}
 #btnL{color:#f96;border-color:#f96}
 #btnR{color:#6bf;border-color:#6bf}
-#btnStart{color:#ff9;border-color:#ff9}
 #btnListen{color:#9cf;border-color:#9cf}
 .sel{background:rgba(120,170,255,0.2)!important;transform:scale(1.05)}
 .off{opacity:0.3;pointer-events:none}
@@ -36,7 +35,6 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
     <button class=btn id=btnR>右の画面 &#9654;</button>
   </div>
   <div class=row id=syncRow>
-    <button class=btn id=btnStart>&#128266; スタート</button>
     <button class=btn id=btnListen>&#127908; 待機</button>
   </div>
 </div>
@@ -62,7 +60,7 @@ function setSide(s){
   side=s;
   document.getElementById("btnL").className="btn"+(s===0?" sel":"");
   document.getElementById("btnR").className="btn"+(s===1?" sel":"");
-  statusEl.textContent="② スタート or 待機を押してください";
+  statusEl.textContent="② 待機を押してください";
 }
 document.getElementById("btnL").addEventListener("click",function(){setSide(0);});
 document.getElementById("btnR").addEventListener("click",function(){setSide(1);});
@@ -107,16 +105,7 @@ function ac(){
   if(actx.state==="suspended")actx.resume();
   return actx;
 }
-function playBeep(){
-  var a=ac(),o=a.createOscillator(),g=a.createGain();
-  o.connect(g);g.connect(a.destination);
-  o.frequency.value=1000;
-  g.gain.setValueAtTime(0,a.currentTime);
-  g.gain.linearRampToValueAtTime(0.8,a.currentTime+0.01);
-  g.gain.linearRampToValueAtTime(0,a.currentTime+0.15);
-  o.start(a.currentTime);o.stop(a.currentTime+0.2);
-}
-function startMic(isSender){
+function startMic(){
   if(listening)return Promise.resolve();
   listening=true;
   document.getElementById("meter").classList.remove("hidden");
@@ -126,22 +115,66 @@ function startMic(isSender){
     var a=ac(),src=a.createMediaStreamSource(stream),an=a.createAnalyser();
     an.fftSize=512;src.connect(an);
     var buf=new Uint8Array(an.fftSize),done=false;
-    statusEl.textContent=isSender?"鳴らしました\n音を検出中…":"音を待っています\nスタート端末でビープを";
+    var t1=null;
+    var coolDownUntil=0;
+    statusEl.textContent="音を待っています\n拍手を2回してください";
+    
     function detect(){
       if(done){listening=false;return;}
+      
+      var now = Date.now();
+      // 1回目の拍手から2秒以上経過したらタイムアウト
+      if (t1 !== null && now - t1 > 2000) {
+        t1 = null;
+        statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
+      }
+
       an.getByteTimeDomainData(buf);
       var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
       var rms=Math.sqrt(sum/buf.length);
       document.getElementById("mbar").style.width=Math.min(100,rms*400)+"%";
-      if(rms>THRESHOLD){
-        done=true;listening=false;
-        t0=Date.now();
-        stream.getTracks().forEach(function(t){t.stop();});
-        statusEl.textContent="\u26a1 同期完了！2画面を並べてね";
-        document.getElementById("meter").classList.add("hidden");
-        document.getElementById("sideRow").classList.add("hidden");
-        document.getElementById("syncRow").classList.add("hidden");
-      } else { requestAnimationFrame(detect); }
+      
+      if(rms>THRESHOLD && now > coolDownUntil){
+        if (t1 === null) {
+          // 1回目の拍手
+          t1 = now;
+          coolDownUntil = now + 250; // チャタリング防止 (250ms)
+          statusEl.textContent = "1回目の拍手を検出！\nもう一度拍手してください...";
+        } else {
+          // 2回目の拍手
+          var interval = now - t1;
+          if (interval >= 250 && interval <= 2000) {
+            done=true;
+            listening=false;
+            t0=now; // 2回目の拍手のタイミングで同期開始
+            
+            // 間隔に合わせてスピード判定（3段階）
+            var speedName = "";
+            if (interval < 600) {
+              CYCLE = 2000;
+              speedName = "速い (2.0s)";
+            } else if (interval < 1100) {
+              CYCLE = 4000;
+              speedName = "普通 (4.0s)";
+            } else {
+              CYCLE = 7000;
+              speedName = "遅い (7.0s)";
+            }
+            
+            stream.getTracks().forEach(function(t){t.stop();});
+            statusEl.textContent="⚡ 同期完了！\n間隔: "+interval+"ms (スピード: "+speedName+")\n2画面を並べてね";
+            document.getElementById("meter").classList.add("hidden");
+            document.getElementById("sideRow").classList.add("hidden");
+            document.getElementById("syncRow").classList.add("hidden");
+          } else {
+            // 例外的なチャタリング等は1回目として再設定
+            t1 = now;
+            coolDownUntil = now + 250;
+            statusEl.textContent = "1回目の拍手を検出！\nもう一度拍手してください...";
+          }
+        }
+      }
+      if(!done){ requestAnimationFrame(detect); }
     }
     detect();
   }).catch(function(e){
@@ -150,17 +183,11 @@ function startMic(isSender){
   });
 }
 
-document.getElementById("btnStart").addEventListener("click",function(){
-  if(side<0){statusEl.textContent="先に左右を選んでください";return;}
-  ac();this.classList.add("off");
-  statusEl.textContent="マイク起動中…";
-  startMic(true).then(function(){setTimeout(playBeep,250);});
-});
 document.getElementById("btnListen").addEventListener("click",function(){
   if(side<0){statusEl.textContent="先に左右を選んでください";return;}
   ac();this.classList.add("off");
   statusEl.textContent="マイク起動中…";
-  startMic(false);
+  startMic();
 });
 </script>
 </body>
