@@ -130,23 +130,26 @@ function startMic(){
     document.getElementById("thresh").style.left = (THRESHOLD * 100) + "%";
 
     var buf=new Uint8Array(an.fftSize),done=false;
+    var state=0; // 0: 1回目の拍手待ち, 1: 波形の減衰待ち, 2: 2回目の拍手待ち
     var t1=null;
     var coolDownUntil=0;
+    var QUIET_THRESHOLD=0.05; // 減衰判定のしきい値
     statusEl.textContent="音を待っています\n拍手を2回してください";
     
     function detect(){
       if(done){listening=false;return;}
       
       var now = Date.now();
-      // 1回目の拍手から2秒以上経過したらタイムアウト
-      if (t1 !== null && now - t1 > 2000) {
+      // 1回目の拍手から2秒以上経過したらタイムアウトしてやり直し
+      if (state > 0 && now - t1 > 2000) {
+        state = 0;
         t1 = null;
         statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
       }
 
       an.getByteTimeDomainData(buf);
       
-      // 平均 (RMS) ではなく、瞬間的な最大振幅 (ピーク) を取得するよう変更
+      // 平均 (RMS) ではなく、瞬間的な最大振幅 (ピーク) を取得
       var maxVal=0;
       for(var i=0;i<buf.length;i++){
         var v=Math.abs(buf[i]-128)/128;
@@ -154,16 +157,25 @@ function startMic(){
       }
       document.getElementById("mbar").style.width=Math.min(100,maxVal*100)+"%";
       
-      if(maxVal>THRESHOLD && now > coolDownUntil){
-        if (t1 === null) {
-          // 1回目の拍手
+      if (state === 0) {
+        // 1回目の拍手を待つ
+        if (maxVal > THRESHOLD) {
+          state = 1;
           t1 = now;
-          coolDownUntil = now + 250; // チャタリング防止 (250ms)
-          statusEl.textContent = "1回目の拍手を検出！\nもう一度拍手してください...";
-        } else {
-          // 2回目の拍手
+          coolDownUntil = now + 100; // 最低100msのクールダウン
+          statusEl.textContent = "1回目の拍手を検出！\n音の減衰を待っています...";
+        }
+      } else if (state === 1) {
+        // 1回目の拍手の音が静まるのを待つ（チャタリングによる2回目誤検知を完全に防止）
+        if (maxVal < QUIET_THRESHOLD && now > coolDownUntil) {
+          state = 2;
+          statusEl.textContent = "準備完了！\nもう一度拍手してください...";
+        }
+      } else if (state === 2) {
+        // 2回目の拍手を待つ
+        if (maxVal > THRESHOLD) {
           var interval = now - t1;
-          if (interval >= 250 && interval <= 2000) {
+          if (interval <= 2000) {
             done=true;
             listening=false;
             t0=now; // 2回目の拍手のタイミングで同期開始
@@ -187,10 +199,10 @@ function startMic(){
             document.getElementById("sideRow").classList.add("hidden");
             document.getElementById("syncRow").classList.add("hidden");
           } else {
-            // 例外的なチャタリング等は1回目として再設定
-            t1 = now;
-            coolDownUntil = now + 250;
-            statusEl.textContent = "1回目の拍手を検出！\nもう一度拍手してください...";
+            // 例外処理（タイムアウト等）
+            state = 0;
+            t1 = null;
+            statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
           }
         }
       }
