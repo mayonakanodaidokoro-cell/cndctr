@@ -12,13 +12,19 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
 #elapsed{font-size:22px;letter-spacing:.05em;color:#ff9;min-height:1.1em}
 #status{font-size:10px;letter-spacing:.15em;color:#999;text-align:center;line-height:1.8;white-space:pre;min-height:2.6em}
 .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:13px 24px;font:13px monospace;letter-spacing:.08em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff;transition:all .15s}
-#btnL{color:#f96;border-color:#f96}
-#btnR{color:#6bf;border-color:#6bf}
+.btn{background:#1a1a2a;border:1px solid #444;border-radius:10px;padding:13px 20px;font:13px monospace;letter-spacing:.08em;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,0.1);touch-action:manipulation;color:#fff;transition:all .15s}
+#btnP1{color:#f96;border-color:#f96}
+#btnP2{color:#5c5;border-color:#5c5}
+#btnP3{color:#6bf;border-color:#6bf}
+#btnP4{color:#c8f;border-color:#c8f}
 #btnListen{color:#9cf;border-color:#9cf}
 #btnReset{color:#ff9eb5;border-color:#ff9eb5}
 #btnCancel{color:#999;border-color:#555}
 .sel{background:rgba(120,170,255,0.2)!important;transform:scale(1.05)}
+#btnP1.sel{background:rgba(255,153,102,0.2)!important}
+#btnP2.sel{background:rgba(85,204,85,0.2)!important}
+#btnP3.sel{background:rgba(102,187,255,0.2)!important}
+#btnP4.sel{background:rgba(204,136,255,0.2)!important}
 .off{opacity:0.3;pointer-events:none}
 .hidden{display:none !important}
 #meter{width:180px;height:8px;background:#111;border-radius:3px;overflow:hidden;position:relative}
@@ -49,21 +55,21 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
 <!-- メインメニュービュー -->
 <div id="menuView">
   <div class="menu-title">CNDCTR</div>
-  <div class="menu-subtitle">2台のスマホを同期させる音と光の実験</div>
+  <div class="menu-subtitle">最大4台のスマホを同期させる音と光の実験</div>
   <div class="menu-cards">
     <div class="menu-card" id="cardMoving">
       <div class="card-header">
         <span class="card-icon">🏃</span>
         <span class="card-title">Moving Mode</span>
       </div>
-      <div class="card-desc">オブジェクトが画面の境界を越えて左右に往復移動するアニメーション。</div>
+      <div class="card-desc">オブジェクトが画面の境界を越えて4つの画面を横断し往復移動するアニメーション。</div>
     </div>
     <div class="menu-card" id="cardSinging">
       <div class="card-header">
         <span class="card-icon">🎵</span>
         <span class="card-title">Singing Mode</span>
       </div>
-      <div class="card-desc">2台のスマホがメロディと伴奏をハモり奏でる、美しくシンクロした音楽演奏。</div>
+      <div class="card-desc">最大4台のスマホがカノン（輪奏）と伴奏をハモり奏でる、美しくシンクロした音楽演奏。</div>
     </div>
   </div>
 </div>
@@ -72,10 +78,12 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
 <div id=panel class="hidden">
   <div id=elapsed></div>
   <div id=meter class=hidden><div id=mbar></div><div id=thresh></div></div>
-  <div id=status>① 画面の左右を選んでください</div>
+  <div id=status>① パートまたは画面位置を選んでください</div>
   <div class=row id=sideRow>
-    <button class=btn id=btnL>&#9664; 左の画面</button>
-    <button class=btn id=btnR>右の画面 &#9654;</button>
+    <button class=btn id=btnP1>①</button>
+    <button class=btn id=btnP2>②</button>
+    <button class=btn id=btnP3>③</button>
+    <button class=btn id=btnP4>④</button>
   </div>
   <div class=row id=syncRow>
     <button class=btn id=btnListen>&#127908; 待機</button>
@@ -119,79 +127,110 @@ window.addEventListener("resize",resize);resize();
 // ── 画面選択 ──
 function setSide(s){
   side=s;
-  document.getElementById("btnL").className="btn"+(s===0?" sel":"");
-  document.getElementById("btnR").className="btn"+(s===1?" sel":"");
+  document.getElementById("btnP1").className="btn"+(s===0?" sel":"");
+  document.getElementById("btnP2").className="btn"+(s===1?" sel":"");
+  document.getElementById("btnP3").className="btn"+(s===2?" sel":"");
+  document.getElementById("btnP4").className="btn"+(s===3?" sel":"");
   statusEl.textContent="② 待機を押してください";
 }
-document.getElementById("btnL").addEventListener("click",function(){setSide(0);});
-document.getElementById("btnR").addEventListener("click",function(){setSide(1);});
+document.getElementById("btnP1").addEventListener("click",function(){setSide(0);});
+document.getElementById("btnP2").addEventListener("click",function(){setSide(1);});
+document.getElementById("btnP3").addEventListener("click",function(){setSide(2);});
+document.getElementById("btnP4").addEventListener("click",function(){setSide(3);});
 
 // ── 音楽データ（きらきら星） ──
 var NOTE_FREQS = {
-  "B2": 123.47,
-  "C3": 130.81, "D3": 146.83, "E3": 164.81, "F3": 174.61, "G3": 196.00, "A3": 220.00, "B3": 246.94,
-  "C4": 261.63, "D4": 293.66, "E4": 329.63, "F4": 349.23, "G4": 392.00, "A4": 440.00, "B4": 493.88,
-  "C5": 523.25, "D5": 587.33, "E5": 659.25, "F5": 698.46, "G5": 783.99, "A5": 880.00, "B5": 987.77
+  "D3": 146.83, "F#3": 185.00, "G3": 196.00, "A3": 220.00, "B3": 246.94,
+  "C#4": 277.18, "D4": 293.66, "E4": 329.63, "F#4": 369.99, "G4": 392.00, "A4": 440.00, "B4": 493.88,
+  "C#5": 554.37, "D5": 587.33, "E5": 659.25, "F#5": 739.99, "G5": 783.99, "A5": 880.00, "B5": 987.77
 };
 // 1拍 = 500ms (120 BPM)
-// メロディ (左画面)
-var melodyScore = [
-  {n:"C4", t:0}, {n:"C4", t:1}, {n:"G4", t:2}, {n:"G4", t:3}, {n:"A4", t:4}, {n:"A4", t:5}, {n:"G4", t:6, d:2},
-  {n:"F4", t:8}, {n:"F4", t:9}, {n:"E4", t:10}, {n:"E4", t:11}, {n:"D4", t:12}, {n:"D4", t:13}, {n:"C4", t:14, d:2},
-  {n:"G4", t:16}, {n:"G4", t:17}, {n:"F4", t:18}, {n:"F4", t:19}, {n:"E4", t:20}, {n:"E4", t:21}, {n:"D4", t:22, d:2},
-  {n:"G4", t:24}, {n:"G4", t:25}, {n:"F4", t:26}, {n:"F4", t:27}, {n:"E4", t:28}, {n:"E4", t:29}, {n:"D4", t:30, d:2},
-  {n:"C4", t:32}, {n:"C4", t:33}, {n:"G4", t:34}, {n:"G4", t:35}, {n:"A4", t:36}, {n:"A4", t:37}, {n:"G4", t:38, d:2},
-  {n:"F4", t:40}, {n:"F4", t:41}, {n:"E4", t:42}, {n:"E4", t:43}, {n:"D4", t:44}, {n:"D4", t:45}, {n:"C4", t:46, d:2}
+// メロディ (カノン進行 32拍)
+var canonMelody = [
+  // Section 1: Half notes (2 beats each)
+  {n:"F#5", t:0, d:2}, {n:"E5", t:2, d:2},
+  {n:"D5", t:4, d:2}, {n:"C#5", t:6, d:2},
+  {n:"B4", t:8, d:2}, {n:"A4", t:10, d:2},
+  {n:"B4", t:12, d:2}, {n:"C#5", t:14, d:2},
+  
+  // Section 2: Quarter notes (1 beat each)
+  {n:"D5", t:16}, {n:"C#5", t:17}, {n:"B4", t:18}, {n:"A4", t:19},
+  {n:"G4", t:20}, {n:"F#4", t:21}, {n:"G4", t:22}, {n:"A4", t:23},
+  {n:"B4", t:24}, {n:"C#5", t:25}, {n:"D5", t:26}, {n:"E5", t:27},
+  {n:"F#5", t:28}, {n:"D5", t:29}, {n:"E5", t:30}, {n:"C#5", t:31}
 ];
-// 伴奏 (右画面 - 1拍に2音のアルペジオ)
+// 伴奏 (1拍に2音のアルペジオ)
 var harmonyScore = [
-  {n:"C3", t:0}, {n:"E3", t:0.5}, {n:"G3", t:1}, {n:"E3", t:1.5},
-  {n:"G3", t:2}, {n:"B3", t:2.5}, {n:"D4", t:3}, {n:"B3", t:3.5},
-  {n:"A3", t:4}, {n:"C4", t:4.5}, {n:"E4", t:5}, {n:"C4", t:5.5},
-  {n:"G3", t:6}, {n:"B3", t:6.5}, {n:"D4", t:7}, {n:"B3", t:7.5},
-  {n:"F3", t:8}, {n:"A3", t:8.5}, {n:"C4", t:9}, {n:"A3", t:9.5},
-  {n:"C3", t:10}, {n:"E3", t:10.5}, {n:"G3", t:11}, {n:"E3", t:11.5},
-  {n:"D3", t:12}, {n:"F3", t:12.5}, {n:"A3", t:13}, {n:"F3", t:13.5},
-  {n:"C3", t:14}, {n:"E3", t:14.5}, {n:"G3", t:15}, {n:"E3", t:15.5},
-  
-  {n:"G3", t:16}, {n:"B3", t:16.5}, {n:"D4", t:17}, {n:"B3", t:17.5},
-  {n:"F3", t:18}, {n:"A3", t:18.5}, {n:"C4", t:19}, {n:"A3", t:19.5},
-  {n:"E3", t:20}, {n:"G3", t:20.5}, {n:"C4", t:21}, {n:"G3", t:21.5},
-  {n:"D3", t:22}, {n:"F3", t:22.5}, {n:"A3", t:23}, {n:"F3", t:23.5},
-  
-  {n:"G3", t:24}, {n:"B3", t:24.5}, {n:"D4", t:25}, {n:"B3", t:25.5},
-  {n:"F3", t:26}, {n:"A3", t:26.5}, {n:"C4", t:27}, {n:"A3", t:27.5},
-  {n:"E3", t:28}, {n:"G3", t:28.5}, {n:"C4", t:29}, {n:"G3", t:29.5},
-  {n:"D3", t:30}, {n:"F3", t:30.5}, {n:"A3", t:31}, {n:"F3", t:31.5},
-  
-  {n:"C3", t:32}, {n:"E3", t:32.5}, {n:"G3", t:33}, {n:"E3", t:33.5},
-  {n:"G3", t:34}, {n:"B3", t:34.5}, {n:"D4", t:35}, {n:"B3", t:35.5},
-  {n:"A3", t:36}, {n:"C4", t:36.5}, {n:"E4", t:37}, {n:"C4", t:37.5},
-  {n:"G3", t:38}, {n:"B3", t:38.5}, {n:"D4", t:39}, {n:"B3", t:39.5},
-  {n:"F3", t:40}, {n:"A3", t:40.5}, {n:"C4", t:41}, {n:"A3", t:41.5},
-  {n:"C3", t:42}, {n:"E3", t:42.5}, {n:"G3", t:43}, {n:"E3", t:43.5},
-  {n:"D3", t:44}, {n:"F3", t:44.5}, {n:"A3", t:45}, {n:"F3", t:45.5},
-  {n:"C3", t:46}, {n:"E3", t:46.5}, {n:"G3", t:47}, {n:"E3", t:47.5}
+  // Bar 1: D Major (t: 0-4)
+  {n:"D3", t:0}, {n:"A3", t:0.5}, {n:"D4", t:1}, {n:"F#4", t:1.5},
+  {n:"D4", t:2}, {n:"A3", t:2.5}, {n:"F#3", t:3}, {n:"A3", t:3.5},
+  // Bar 2: A Major (t: 4-8)
+  {n:"A3", t:4}, {n:"C#4", t:4.5}, {n:"E4", t:5}, {n:"A4", t:5.5},
+  {n:"E4", t:6}, {n:"C#4", t:6.5}, {n:"A3", t:7}, {n:"C#4", t:7.5},
+  // Bar 3: B minor (t: 8-12)
+  {n:"B3", t:8}, {n:"D4", t:8.5}, {n:"F#4", t:9}, {n:"B4", t:9.5},
+  {n:"F#4", t:10}, {n:"D4", t:10.5}, {n:"B3", t:11}, {n:"D4", t:11.5},
+  // Bar 4: F# minor (t: 12-16)
+  {n:"F#3", t:12}, {n:"C#4", t:12.5}, {n:"F#4", t:13}, {n:"A4", t:13.5},
+  {n:"F#4", t:14}, {n:"C#4", t:14.5}, {n:"F#3", t:15}, {n:"C#4", t:15.5},
+  // Bar 5: G Major (t: 16-20)
+  {n:"G3", t:16}, {n:"B3", t:16.5}, {n:"D4", t:17}, {n:"G4", t:17.5},
+  {n:"D4", t:18}, {n:"B3", t:18.5}, {n:"G3", t:19}, {n:"B3", t:19.5},
+  // Bar 6: D Major (t: 20-24)
+  {n:"D3", t:20}, {n:"A3", t:20.5}, {n:"D4", t:21}, {n:"F#4", t:21.5},
+  {n:"D4", t:22}, {n:"A3", t:22.5}, {n:"F#3", t:23}, {n:"A3", t:23.5},
+  // Bar 7: G Major (t: 24-28)
+  {n:"G3", t:24}, {n:"B3", t:24.5}, {n:"D4", t:25}, {n:"G4", t:25.5},
+  {n:"D4", t:26}, {n:"B3", t:26.5}, {n:"G3", t:27}, {n:"B3", t:27.5},
+  // Bar 8: A Major (t: 28-32)
+  {n:"A3", t:28}, {n:"C#4", t:28.5}, {n:"E4", t:29}, {n:"A4", t:29.5},
+  {n:"E4", t:30}, {n:"C#4", t:30.5}, {n:"A3", t:31}, {n:"C#4", t:31.5}
 ];
 
 function getActiveNoteFreq() {
   if (t0 === null) return 0;
-  var beat = ((Date.now() - t0) % 24000) / 500;
+  var elapsed = Date.now() - t0;
+  var beat = (elapsed % 16000) / 500;
+  
   if (side === 0) {
-    for (var i = 0; i < melodyScore.length; i++) {
-      var note = melodyScore[i];
-      var duration = note.d || 1;
-      if (beat >= note.t && beat < note.t + duration) {
-        if (beat - note.t < duration - 0.1) {
-          return NOTE_FREQS[note.n];
-        }
-      }
-    }
-  } else if (side === 1) {
+    // 伴奏 (Part 1)
     for (var i = 0; i < harmonyScore.length; i++) {
       var note = harmonyScore[i];
       if (beat >= note.t && beat < note.t + 0.5) {
         if (beat - note.t < 0.44) {
+          return NOTE_FREQS[note.n];
+        }
+      }
+    }
+  } else {
+    // メロディ (Part 2, 3, 4)
+    var delayBeats = 0;
+    if (side === 2) delayBeats = 8;
+    else if (side === 3) delayBeats = 16;
+    
+    for (var i = 0; i < canonMelody.length; i++) {
+      var note = canonMelody[i];
+      var shiftedBeat = (note.t + delayBeats) % 32;
+      var duration = note.d || 1;
+      
+      var start = shiftedBeat;
+      var end = shiftedBeat + duration;
+      
+      var match = false;
+      if (end <= 32) {
+        match = (beat >= start && beat < end);
+      } else {
+        match = (beat >= start && beat < 32) || (beat >= 0 && beat < end - 32);
+      }
+      
+      if (match) {
+        var localTime;
+        if (beat >= start) {
+          localTime = beat - start;
+        } else {
+          localTime = beat + 32 - start;
+        }
+        if (localTime < duration - 0.1) {
           return NOTE_FREQS[note.n];
         }
       }
@@ -233,7 +272,7 @@ function playNoteAt(freq, time, duration) {
 }
 
 function scheduleMusic(loopIndex) {
-  var loopDuration = 24.0; // 24秒で1ループ
+  var loopDuration = 16.0; // 16秒で1ループ (32拍)
   var loopStartRealTime = t0 + loopIndex * loopDuration * 1000 + delayOffset;
   
   // スピーカー出力の遅延（outputLatency / baseLatency）を引いて物理的な音の発生タイミングを補正
@@ -242,17 +281,24 @@ function scheduleMusic(loopIndex) {
   var loopStartAcTime = a.currentTime + (loopStartRealTime - Date.now()) / 1000 - outLat;
   
   if (side === 0) {
-    melodyScore.forEach(function(note) {
-      var f = NOTE_FREQS[note.n];
-      var st = loopStartAcTime + note.t * 0.5;
-      var d = (note.d || 1) * 0.5 - 0.05;
-      playNoteAt(f, st, d);
-    });
-  } else if (side === 1) {
+    // 伴奏 (Part 1)
     harmonyScore.forEach(function(note) {
       var f = NOTE_FREQS[note.n];
       var st = loopStartAcTime + note.t * 0.5;
       var d = 0.22;
+      playNoteAt(f, st, d);
+    });
+  } else {
+    // メロディ (Part 2, 3, 4)
+    var delayBeats = 0;
+    if (side === 2) delayBeats = 8;
+    else if (side === 3) delayBeats = 16;
+    
+    canonMelody.forEach(function(note) {
+      var f = NOTE_FREQS[note.n];
+      var shiftedBeat = (note.t + delayBeats) % 32;
+      var st = loopStartAcTime + shiftedBeat * 0.5;
+      var d = (note.d || 1) * 0.5 - 0.05;
       playNoteAt(f, st, d);
     });
   }
@@ -299,12 +345,12 @@ function draw(){
       var tt=(n%CYCLE)/CYCLE;
       var tri=tt<0.5?tt*2:2-tt*2;
       var eased=tri<0.5?2*tri*tri:1-Math.pow(-2*tri+2,2)/2;
-      var span=2*W-bw;
+      var span=4*W-bw;
       var gx=Math.floor(eased*span);
       var goingRight=tt<0.5;
       var gy=Math.floor(H*0.4+Math.sin(n/500*Math.PI*2)*H*0.05);
       var f=Math.floor(n/120)%4;
-      var lx=side===1?gx-W:gx;
+      var lx=gx-side*W;
       for(var r=0;r<SH;r++)for(var c=0;c<SW;c++){
         var sc=goingRight?c:(SW-1-c);
         var v=+S[f*SW*SH+r*SW+sc];
@@ -313,7 +359,7 @@ function draw(){
     } else if (mode === "singing") {
       // ── Singing Mode ──
       // 高精度ループスケジューラ
-      var currentLoop = Math.floor(n / 24000);
+      var currentLoop = Math.floor(n / 16000);
       if (currentLoop + 1 >= scheduledLoops) {
         scheduleMusic(scheduledLoops);
         scheduledLoops++;
@@ -338,9 +384,15 @@ function draw(){
       if (side === 0) {
         ctx.shadowColor = "#f96";
         ctx.fillStyle = "rgba(255, 153, 96, 0.9)";
-      } else {
+      } else if (side === 1) {
+        ctx.shadowColor = "#5c5";
+        ctx.fillStyle = "rgba(85, 204, 85, 0.9)";
+      } else if (side === 2) {
         ctx.shadowColor = "#6bf";
         ctx.fillStyle = "rgba(102, 187, 255, 0.9)";
+      } else {
+        ctx.shadowColor = "#c8f";
+        ctx.fillStyle = "rgba(204, 136, 255, 0.9)";
       }
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI*2);
@@ -426,8 +478,18 @@ function draw(){
           ctx.save();
           ctx.globalAlpha = p.alpha;
           ctx.font = "bold " + p.size + "px sans-serif";
-          ctx.fillStyle = side === 0 ? "#ffb380" : "#b3d9ff";
-          ctx.shadowColor = side === 0 ? "#f96" : "#6bf";
+          var pColor, pShadow;
+          if (side === 0) {
+            pColor = "#ffb380"; pShadow = "#f96";
+          } else if (side === 1) {
+            pColor = "#9f9"; pShadow = "#5c5";
+          } else if (side === 2) {
+            pColor = "#b3d9ff"; pShadow = "#6bf";
+          } else {
+            pColor = "#e6b3ff"; pShadow = "#c8f";
+          }
+          ctx.fillStyle = pColor;
+          ctx.shadowColor = pShadow;
           ctx.shadowBlur = 10;
           ctx.fillText(p.text, p.x, p.y);
           ctx.restore();
@@ -523,7 +585,7 @@ function startMic(){
           
           stream.getTracks().forEach(function(t){t.stop();});
           micStream = null;
-          statusEl.textContent="⚡ 同期完了！\n2画面を並べてね";
+          statusEl.textContent="⚡ 同期完了！\n4画面を並べてね";
           document.getElementById("meter").classList.add("hidden");
           document.getElementById("sideRow").classList.add("hidden");
           document.getElementById("syncRow").classList.add("hidden");
@@ -578,7 +640,7 @@ function startMic(){
               
               stream.getTracks().forEach(function(t){t.stop();});
               micStream = null;
-              statusEl.textContent="⚡ 同期完了！\n間隔: "+Math.round(interval)+"ms (スピード: "+speedName+")\n2画面を並べてね";
+              statusEl.textContent="⚡ 同期完了！\n間隔: "+Math.round(interval)+"ms (スピード: "+speedName+")\n4画面を並べてね";
               document.getElementById("meter").classList.add("hidden");
               document.getElementById("sideRow").classList.add("hidden");
               document.getElementById("syncRow").classList.add("hidden");
@@ -613,11 +675,28 @@ function showSetup(m) {
   delayOffset = 0;
   document.getElementById("offsetSlider").value = 0;
   document.getElementById("offsetValue").textContent = "+0ms";
-  document.getElementById("btnL").className="btn";
-  document.getElementById("btnR").className="btn";
+  document.getElementById("btnP1").className="btn";
+  document.getElementById("btnP2").className="btn";
+  document.getElementById("btnP3").className="btn";
+  document.getElementById("btnP4").className="btn";
   document.getElementById("btnListen").className="btn";
   document.getElementById("elapsed").textContent="";
-  statusEl.textContent="① 画面の左右を選んでください";
+  
+  // モード別ボタン表示名設定
+  if (m === "moving") {
+    document.getElementById("btnP1").innerHTML = "① 左端";
+    document.getElementById("btnP2").innerHTML = "② 左中";
+    document.getElementById("btnP3").innerHTML = "③ 右中";
+    document.getElementById("btnP4").innerHTML = "④ 右端";
+    statusEl.textContent="① 画面の位置を選んでください";
+  } else {
+    document.getElementById("btnP1").innerHTML = "① 伴奏";
+    document.getElementById("btnP2").innerHTML = "② カノン1";
+    document.getElementById("btnP3").innerHTML = "③ カノン2";
+    document.getElementById("btnP4").innerHTML = "④ カノン3";
+    statusEl.textContent="① パートを選んでください";
+  }
+  
   document.getElementById("sideRow").classList.remove("hidden");
   document.getElementById("syncRow").classList.remove("hidden");
   document.getElementById("resetRow").classList.add("hidden");
@@ -654,7 +733,14 @@ document.getElementById("cardMoving").addEventListener("click", function() { sho
 document.getElementById("cardSinging").addEventListener("click", function() { showSetup("singing"); });
 
 document.getElementById("btnListen").addEventListener("click",function(){
-  if(side<0){statusEl.textContent="先に左右を選んでください";return;}
+  if(side<0){
+    if (mode === "moving") {
+      statusEl.textContent="先に画面の位置を選んでください";
+    } else {
+      statusEl.textContent="先にパートを選んでください";
+    }
+    return;
+  }
   var a = ac();
   // AudioContext の事前ウォームアップ（初回のスピーカー起動ラグ約100msを解消）
   try {
@@ -689,8 +775,8 @@ document.getElementById("offsetSlider").addEventListener("input", function(e) {
   if (t0 !== null) {
     stopAllNotes();
     var elapsed = Date.now() - t0;
-    var loopDuration = 24.0;
-    var currentLoop = Math.floor((elapsed - delayOffset) / 24000);
+    var loopDuration = 16.0;
+    var currentLoop = Math.floor((elapsed - delayOffset) / 16000);
     scheduledLoops = Math.max(0, currentLoop);
   }
 });
