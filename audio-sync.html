@@ -45,7 +45,7 @@ var SW=16,SH=16;
 var cv=document.getElementById("C"),ctx=cv.getContext("2d");
 var W,H,SC;
 var t0=null,listening=false,side=-1;
-var THRESHOLD=0.20; // ピーク絶対値に対する閾値 (0.0 〜 1.0)
+var THRESHOLD=0.10; // ピーク絶対値に対する閾値 (0.0 〜 1.0)
 var statusEl=document.getElementById("status");
 
 function resize(){
@@ -133,7 +133,7 @@ function startMic(){
     var state=0; // 0: 1回目の拍手待ち, 1: 波形の減衰待ち, 2: 2回目の拍手待ち
     var t1=null;
     var coolDownUntil=0;
-    var QUIET_THRESHOLD=0.05; // 減衰判定のしきい値
+    var QUIET_THRESHOLD=0.03; // 減衰判定のしきい値
     statusEl.textContent="音を待っています\n拍手を2回してください";
     
     function detect(){
