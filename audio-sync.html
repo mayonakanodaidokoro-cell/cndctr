@@ -483,14 +483,14 @@ function startMic(){
     var t1=null;
     var coolDownUntil=0;
     var QUIET_THRESHOLD=0.03; // 減衰判定のしきい値
-    statusEl.textContent="音を待っています\n拍手を2回してください";
+    statusEl.textContent = mode === "singing" ? "音を待っています\n拍手を1回してください" : "音を待っています\n拍手を2回してください";
     
     function detect(){
       if(done || !listening){listening=false;return;}
       
       var now = Date.now();
-      // 1回目の拍手から2秒以上経過したらタイムアウトしてやり直し
-      if (state > 0 && now - t1 > 2000) {
+      // 1回目の拍手から2秒以上経過したらタイムアウトしてやり直し (Moving Modeのみ)
+      if (mode !== "singing" && state > 0 && now - t1 > 2000) {
         state = 0;
         t1 = null;
         statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
@@ -510,68 +510,84 @@ function startMic(){
       }
       document.getElementById("mbar").style.width=Math.min(100,maxVal*100)+"%";
       
-      if (state === 0) {
-        // 1回目の拍手を待つ
+      if (mode === "singing") {
+        // Singing Mode: 1回目の拍手で即時同期・開始！
         if (maxVal > THRESHOLD) {
-          state = 1;
-          // ピーク位置＋マイク入力の固有遅延（baseLatencyなど）から、物理的な拍手の発生時刻を逆算して t1 に設定
-          var sampleRate = a.sampleRate;
-          var dt = (buf.length - 1 - peakIdx) / sampleRate;
-          var inLat = (a.baseLatency || 0.005) + 0.010; // ハードウェアバッファ等のオーバーヘッド(約10ms)を考慮
-          t1 = now - (dt + inLat) * 1000;
-          
-          coolDownUntil = now + 100; // 最低100msのクールダウン
-          statusEl.textContent = "1回目の拍力を検出！\n音の減衰を待っています...";
-        }
-      } else if (state === 1) {
-        // 1回目の拍手の音が静まるのを待つ（チャタリングによる2回目誤検知を完全に防止）
-        if (maxVal < QUIET_THRESHOLD && now > coolDownUntil) {
-          state = 2;
-          statusEl.textContent = "準備完了！\nもう一度拍手してください...";
-        }
-      } else if (state === 2) {
-        // 2回目の拍手を待つ
-        if (maxVal > THRESHOLD) {
+          done=true;
+          listening=false;
           var sampleRate = a.sampleRate;
           var dt = (buf.length - 1 - peakIdx) / sampleRate;
           var inLat = (a.baseLatency || 0.005) + 0.010;
-          var exactNow = now - (dt + inLat) * 1000;
-          var interval = exactNow - t1;
+          t0 = now - (dt + inLat) * 1000;
+          scheduledLoops=0;
           
-          if (interval <= 2000) {
-            done=true;
-            listening=false;
-            t0=exactNow; // 2回目の拍手の正確なタイミングで同期開始
-            scheduledLoops=0;
+          stream.getTracks().forEach(function(t){t.stop();});
+          micStream = null;
+          statusEl.textContent="⚡ 同期完了！\n2画面を並べてね";
+          document.getElementById("meter").classList.add("hidden");
+          document.getElementById("sideRow").classList.add("hidden");
+          document.getElementById("syncRow").classList.add("hidden");
+          document.getElementById("resetRow").classList.remove("hidden");
+          document.getElementById("adjustRow").classList.remove("hidden");
+        }
+      } else {
+        // Moving Mode (2 claps)
+        if (state === 0) {
+          // 1回目の拍手を待つ
+          if (maxVal > THRESHOLD) {
+            state = 1;
+            var sampleRate = a.sampleRate;
+            var dt = (buf.length - 1 - peakIdx) / sampleRate;
+            var inLat = (a.baseLatency || 0.005) + 0.010;
+            t1 = now - (dt + inLat) * 1000;
             
-            // 間隔に合わせてスピード判定（3段階、Moving Mode用）
-            var speedName = "";
-            if (interval < 600) {
-              CYCLE = 2000;
-              speedName = "速い (2.0s)";
-            } else if (interval < 1100) {
-              CYCLE = 4000;
-              speedName = "普通 (4.0s)";
+            coolDownUntil = now + 100;
+            statusEl.textContent = "1回目の拍力を検出！\n音の減衰を待っています...";
+          }
+        } else if (state === 1) {
+          if (maxVal < QUIET_THRESHOLD && now > coolDownUntil) {
+            state = 2;
+            statusEl.textContent = "準備完了！\nもう一度拍手してください...";
+          }
+        } else if (state === 2) {
+          // 2回目の拍手を待つ
+          if (maxVal > THRESHOLD) {
+            var sampleRate = a.sampleRate;
+            var dt = (buf.length - 1 - peakIdx) / sampleRate;
+            var inLat = (a.baseLatency || 0.005) + 0.010;
+            var exactNow = now - (dt + inLat) * 1000;
+            var interval = exactNow - t1;
+            
+            if (interval <= 2000) {
+              done=true;
+              listening=false;
+              t0=exactNow;
+              scheduledLoops=0;
+              
+              var speedName = "";
+              if (interval < 600) {
+                CYCLE = 2000;
+                speedName = "速い (2.0s)";
+              } else if (interval < 1100) {
+                CYCLE = 4000;
+                speedName = "普通 (4.0s)";
+              } else {
+                CYCLE = 7000;
+                speedName = "遅い (7.0s)";
+              }
+              
+              stream.getTracks().forEach(function(t){t.stop();});
+              micStream = null;
+              statusEl.textContent="⚡ 同期完了！\n間隔: "+Math.round(interval)+"ms (スピード: "+speedName+")\n2画面を並べてね";
+              document.getElementById("meter").classList.add("hidden");
+              document.getElementById("sideRow").classList.add("hidden");
+              document.getElementById("syncRow").classList.add("hidden");
+              document.getElementById("resetRow").classList.remove("hidden");
             } else {
-              CYCLE = 7000;
-              speedName = "遅い (7.0s)";
+              state = 0;
+              t1 = null;
+              statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
             }
-            
-            stream.getTracks().forEach(function(t){t.stop();});
-            micStream = null;
-            statusEl.textContent="⚡ 同期完了！\n間隔: "+Math.round(interval)+"ms (スピード: "+speedName+")\n2画面を並べてね";
-            document.getElementById("meter").classList.add("hidden");
-            document.getElementById("sideRow").classList.add("hidden");
-            document.getElementById("syncRow").classList.add("hidden");
-            document.getElementById("resetRow").classList.remove("hidden");
-            if (mode === "singing") {
-              document.getElementById("adjustRow").classList.remove("hidden");
-            }
-          } else {
-            // 例外処理（タイムアウト等）
-            state = 0;
-            t1 = null;
-            statusEl.textContent = "タイムアウトしました\n拍手を2回してください";
           }
         }
       }
@@ -639,7 +655,19 @@ document.getElementById("cardSinging").addEventListener("click", function() { sh
 
 document.getElementById("btnListen").addEventListener("click",function(){
   if(side<0){statusEl.textContent="先に左右を選んでください";return;}
-  ac();this.classList.add("off");
+  var a = ac();
+  // AudioContext の事前ウォームアップ（初回のスピーカー起動ラグ約100msを解消）
+  try {
+    var dummy = a.createOscillator();
+    var dummyGain = a.createGain();
+    dummyGain.gain.setValueAtTime(0, a.currentTime);
+    dummy.connect(dummyGain);
+    dummyGain.connect(a.destination);
+    dummy.start(a.currentTime);
+    dummy.stop(a.currentTime + 0.05);
+  } catch(e) {}
+  
+  this.classList.add("off");
   statusEl.textContent="マイク起動中…";
   startMic();
 });
