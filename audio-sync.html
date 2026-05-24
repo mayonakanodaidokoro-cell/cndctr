@@ -45,7 +45,7 @@ var SW=16,SH=16;
 var cv=document.getElementById("C"),ctx=cv.getContext("2d");
 var W,H,SC;
 var t0=null,listening=false,side=-1;
-var THRESHOLD=0.08;
+var THRESHOLD=0.20; // ピーク絶対値に対する閾値 (0.0 〜 1.0)
 var statusEl=document.getElementById("status");
 
 function resize(){
@@ -112,8 +112,23 @@ function startMic(){
   return navigator.mediaDevices.getUserMedia({
     audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
   }).then(function(stream){
-    var a=ac(),src=a.createMediaStreamSource(stream),an=a.createAnalyser();
-    an.fftSize=512;src.connect(an);
+    var a=ac();
+    var src=a.createMediaStreamSource(stream);
+    
+    // ハイパスフィルタ (1500Hz) で低周波の話し声や環境ノイズをカット
+    var filter=a.createBiquadFilter();
+    filter.type="highpass";
+    filter.frequency.value=1500;
+    
+    var an=a.createAnalyser();
+    an.fftSize=2048; // 十分なバッファサイズでフレーム間の取りこぼしを完全に防止
+    
+    src.connect(filter);
+    filter.connect(an);
+    
+    // 赤いしきい値ラインを動的に反映
+    document.getElementById("thresh").style.left = (THRESHOLD * 100) + "%";
+
     var buf=new Uint8Array(an.fftSize),done=false;
     var t1=null;
     var coolDownUntil=0;
@@ -130,11 +145,16 @@ function startMic(){
       }
 
       an.getByteTimeDomainData(buf);
-      var sum=0;for(var i=0;i<buf.length;i++){var v=(buf[i]-128)/128;sum+=v*v;}
-      var rms=Math.sqrt(sum/buf.length);
-      document.getElementById("mbar").style.width=Math.min(100,rms*400)+"%";
       
-      if(rms>THRESHOLD && now > coolDownUntil){
+      // 平均 (RMS) ではなく、瞬間的な最大振幅 (ピーク) を取得するよう変更
+      var maxVal=0;
+      for(var i=0;i<buf.length;i++){
+        var v=Math.abs(buf[i]-128)/128;
+        if(v>maxVal) maxVal=v;
+      }
+      document.getElementById("mbar").style.width=Math.min(100,maxVal*100)+"%";
+      
+      if(maxVal>THRESHOLD && now > coolDownUntil){
         if (t1 === null) {
           // 1回目の拍手
           t1 = now;
