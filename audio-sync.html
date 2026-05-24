@@ -69,7 +69,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
         <span class="card-icon">🎵</span>
         <span class="card-title">Singing Mode</span>
       </div>
-      <div class="card-desc">最大4台のスマホがカノン（輪奏）と伴奏をハモり奏でる、美しくシンクロした音楽演奏。</div>
+      <div class="card-desc">最大4台のスマホがモーツァルトのアイネ・クライネ・ナハトムジークをハモり奏でる、本格的な弦楽四重奏。</div>
     </div>
   </div>
 </div>
@@ -138,130 +138,111 @@ document.getElementById("btnP2").addEventListener("click",function(){setSide(1);
 document.getElementById("btnP3").addEventListener("click",function(){setSide(2);});
 document.getElementById("btnP4").addEventListener("click",function(){setSide(3);});
 
-// ── 音楽データ（きらきら星） ──
+// ── 音楽データ（モーツァルト） ──
 var NOTE_FREQS = {
-  "D3": 146.83, "F#3": 185.00, "G3": 196.00, "A3": 220.00, "B3": 246.94,
+  "G2": 98.00, "A2": 110.00, "B2": 123.47, "C#3": 138.59,
+  "D3": 146.83, "E3": 164.81, "F#3": 185.00, "G3": 196.00, "A3": 220.00, "B3": 246.94,
   "C#4": 277.18, "D4": 293.66, "E4": 329.63, "F#4": 369.99, "G4": 392.00, "A4": 440.00, "B4": 493.88,
   "C#5": 554.37, "D5": 587.33, "E5": 659.25, "F#5": 739.99, "G5": 783.99, "A5": 880.00, "B5": 987.77
 };
-// 1拍 = 500ms (120 BPM)
-// メロディ (カノン進行 32拍)
-var canonMelody = [
-  // Bar 1: Root D (t: 0-4)
-  {n:"F#5", t:0}, {n:"G5", t:0.25}, {n:"A5", t:0.5}, {n:"F#5", t:0.75},
-  {n:"G5", t:1.0}, {n:"A5", t:1.25}, {n:"D5", t:1.5}, {n:"E5", t:1.75},
-  {n:"F#5", t:2.0}, {n:"G5", t:2.25}, {n:"A5", t:2.5}, {n:"B5", t:2.75},
-  {n:"A5", t:3.0}, {n:"G5", t:3.25}, {n:"A5", t:3.5}, {n:"F#5", t:3.75},
-  // Bar 2: Root A (t: 4-8)
-  {n:"E5", t:4.0}, {n:"F#5", t:4.25}, {n:"G5", t:4.5}, {n:"E5", t:4.75},
-  {n:"F#5", t:5.0}, {n:"G5", t:5.25}, {n:"C#5", t:5.5}, {n:"D5", t:5.75},
-  {n:"E5", t:6.0}, {n:"F#5", t:6.25}, {n:"G5", t:6.5}, {n:"A5", t:6.75},
-  {n:"G5", t:7.0}, {n:"F#5", t:7.25}, {n:"G5", t:7.5}, {n:"E5", t:7.75},
-  // Bar 3: Root Bm (t: 8-12)
-  {n:"D5", t:8.0}, {n:"E5", t:8.25}, {n:"F#5", t:8.5}, {n:"D5", t:8.75},
-  {n:"E5", t:9.0}, {n:"F#5", t:9.25}, {n:"B4", t:9.5}, {n:"C#5", t:9.75},
-  {n:"D5", t:10.0}, {n:"E5", t:10.25}, {n:"F#5", t:10.5}, {n:"G5", t:10.75},
-  {n:"F#5", t:11.0}, {n:"E5", t:11.25}, {n:"F#5", t:11.5}, {n:"D5", t:11.75},
-  // Bar 4: Root F#m (t: 12-16)
-  {n:"C#5", t:12.0}, {n:"D5", t:12.25}, {n:"E5", t:12.5}, {n:"C#5", t:12.75},
-  {n:"D5", t:13.0}, {n:"E5", t:13.25}, {n:"A4", t:13.5}, {n:"B4", t:13.75},
-  {n:"C#5", t:14.0}, {n:"D5", t:14.25}, {n:"E5", t:14.5}, {n:"F#5", t:14.75},
-  {n:"E5", t:15.0}, {n:"D5", t:15.25}, {n:"E5", t:15.5}, {n:"C#5", t:15.75},
-  // Bar 5: Root G (t: 16-20)
-  {n:"B4", t:16.0}, {n:"C#5", t:16.25}, {n:"D5", t:16.5}, {n:"B4", t:16.75},
-  {n:"C#5", t:17.0}, {n:"D5", t:17.25}, {n:"G4", t:17.5}, {n:"A4", t:17.75},
-  {n:"B4", t:18.0}, {n:"C#5", t:18.25}, {n:"D5", t:18.5}, {n:"E5", t:18.75},
-  {n:"D5", t:19.0}, {n:"C#5", t:19.25}, {n:"D5", t:19.5}, {n:"B4", t:19.75},
-  // Bar 6: Root D (t: 20-24)
-  {n:"A4", t:20.0}, {n:"B4", t:20.25}, {n:"C#5", t:20.5}, {n:"A4", t:20.75},
-  {n:"B4", t:21.0}, {n:"C#5", t:21.25}, {n:"F#4", t:21.5}, {n:"G4", t:21.75},
-  {n:"A4", t:22.0}, {n:"B4", t:22.25}, {n:"C#5", t:22.5}, {n:"D5", t:22.75},
-  {n:"C#5", t:23.0}, {n:"B4", t:23.25}, {n:"C#5", t:23.5}, {n:"A4", t:23.75},
-  // Bar 7: Root G (t: 24-28)
-  {n:"B4", t:24.0}, {n:"C#5", t:24.25}, {n:"D5", t:24.5}, {n:"B4", t:24.75},
-  {n:"C#5", t:25.0}, {n:"D5", t:25.25}, {n:"G4", t:25.5}, {n:"A4", t:25.75},
-  {n:"B4", t:26.0}, {n:"C#5", t:26.25}, {n:"D5", t:26.5}, {n:"E5", t:26.75},
-  {n:"D5", t:27.0}, {n:"C#5", t:27.25}, {n:"D5", t:27.5}, {n:"B4", t:27.75},
-  // Bar 8: Root A (t: 28-32)
-  {n:"C#5", t:28.0}, {n:"D5", t:28.25}, {n:"E5", t:28.5}, {n:"C#5", t:28.75},
-  {n:"D5", t:29.0}, {n:"E5", t:29.25}, {n:"A4", t:29.5}, {n:"B4", t:29.75},
-  {n:"C#5", t:30.0}, {n:"D5", t:30.25}, {n:"E5", t:30.5}, {n:"F#5", t:30.75},
-  {n:"E5", t:31.0}, {n:"D5", t:31.25}, {n:"E5", t:31.5}, {n:"C#5", t:31.75}
-];
-// 伴奏 (1拍に2音のアルペジオ)
-var harmonyScore = [
-  // Bar 1: D Major (t: 0-4)
-  {n:"D3", t:0}, {n:"A3", t:0.5}, {n:"D4", t:1}, {n:"F#4", t:1.5},
-  {n:"D4", t:2}, {n:"A3", t:2.5}, {n:"F#3", t:3}, {n:"A3", t:3.5},
-  // Bar 2: A Major (t: 4-8)
-  {n:"A3", t:4}, {n:"C#4", t:4.5}, {n:"E4", t:5}, {n:"A4", t:5.5},
-  {n:"E4", t:6}, {n:"C#4", t:6.5}, {n:"A3", t:7}, {n:"C#4", t:7.5},
-  // Bar 3: B minor (t: 8-12)
-  {n:"B3", t:8}, {n:"D4", t:8.5}, {n:"F#4", t:9}, {n:"B4", t:9.5},
-  {n:"F#4", t:10}, {n:"D4", t:10.5}, {n:"B3", t:11}, {n:"D4", t:11.5},
-  // Bar 4: F# minor (t: 12-16)
-  {n:"F#3", t:12}, {n:"C#4", t:12.5}, {n:"F#4", t:13}, {n:"A4", t:13.5},
-  {n:"F#4", t:14}, {n:"C#4", t:14.5}, {n:"F#3", t:15}, {n:"C#4", t:15.5},
-  // Bar 5: G Major (t: 16-20)
-  {n:"G3", t:16}, {n:"B3", t:16.5}, {n:"D4", t:17}, {n:"G4", t:17.5},
-  {n:"D4", t:18}, {n:"B3", t:18.5}, {n:"G3", t:19}, {n:"B3", t:19.5},
-  // Bar 6: D Major (t: 20-24)
-  {n:"D3", t:20}, {n:"A3", t:20.5}, {n:"D4", t:21}, {n:"F#4", t:21.5},
-  {n:"D4", t:22}, {n:"A3", t:22.5}, {n:"F#3", t:23}, {n:"A3", t:23.5},
-  // Bar 7: G Major (t: 24-28)
-  {n:"G3", t:24}, {n:"B3", t:24.5}, {n:"D4", t:25}, {n:"G4", t:25.5},
-  {n:"D4", t:26}, {n:"B3", t:26.5}, {n:"G3", t:27}, {n:"B3", t:27.5},
-  // Bar 8: A Major (t: 28-32)
-  {n:"A3", t:28}, {n:"C#4", t:28.5}, {n:"E4", t:29}, {n:"A4", t:29.5},
-  {n:"E4", t:30}, {n:"C#4", t:30.5}, {n:"A3", t:31}, {n:"C#4", t:31.5}
+
+var scorePart1 = [ // チェロ (ベース)
+  {n:"G2", t:0.0, d:0.8}, {n:"D3", t:1.0, d:0.8},
+  {n:"G2", t:2.0, d:0.5}, {n:"D3", t:2.5, d:0.5}, {n:"G2", t:3.0, d:0.5}, {n:"B2", t:3.5, d:0.5},
+  {n:"G2", t:4.0, d:0.8}, {n:"D3", t:5.0, d:0.8},
+  {n:"G2", t:6.0, d:0.5}, {n:"B2", t:6.5, d:0.5}, {n:"D3", t:7.0, d:0.5}, {n:"G3", t:7.5, d:0.5},
+  {n:"A2", t:8.0, d:0.8}, {n:"E3", t:9.0, d:0.8},
+  {n:"A2", t:10.0, d:0.5}, {n:"E3", t:10.5, d:0.5}, {n:"A2", t:11.0, d:0.5}, {n:"C#3", t:11.5, d:0.5},
+  {n:"A2", t:12.0, d:0.8}, {n:"E3", t:13.0, d:0.8},
+  {n:"D3", t:14.0, d:0.8}, {n:"A2", t:15.0, d:0.8},
+  {n:"D3", t:16.0, d:0.5}, {n:"F#3", t:17.0, d:0.5}, {n:"A2", t:18.0, d:0.5}, {n:"C#3", t:19.0, d:0.5},
+  {n:"D3", t:20.0, d:0.5}, {n:"F#3", t:21.0, d:0.5}, {n:"G2", t:22.0, d:0.5}, {n:"A2", t:23.0, d:0.5},
+  {n:"G2", t:24.0, d:0.5}, {n:"B2", t:25.0, d:0.5}, {n:"D3", t:26.0, d:0.5}, {n:"F#3", t:27.0, d:0.5},
+  {n:"G2", t:28.0, d:0.5}, {n:"B2", t:29.0, d:0.5}, {n:"A2", t:30.0, d:0.5}, {n:"D3", t:31.0, d:0.5}
 ];
 
+var scorePart2 = [ // 第1Vn (主旋律)
+  {n:"G4", t:0.0, d:0.8}, {n:"D4", t:1.0, d:0.8},
+  {n:"G4", t:2.0, d:0.5}, {n:"D4", t:2.5, d:0.5}, {n:"G4", t:3.0, d:0.5}, {n:"B4", t:3.5, d:0.5},
+  {n:"D5", t:4.0, d:0.8}, {n:"B4", t:5.0, d:0.8},
+  {n:"D5", t:6.0, d:0.5}, {n:"B4", t:6.5, d:0.5}, {n:"D5", t:7.0, d:0.5}, {n:"G5", t:7.5, d:0.5},
+  {n:"A5", t:8.0, d:0.8}, {n:"F#5", t:9.0, d:0.8},
+  {n:"A5", t:10.0, d:0.5}, {n:"F#5", t:10.5, d:0.5}, {n:"A5", t:11.0, d:0.5}, {n:"C#5", t:11.5, d:0.5},
+  {n:"E5", t:12.0, d:0.8}, {n:"C#5", t:13.0, d:0.8},
+  {n:"G5", t:14.0, d:0.25}, {n:"F#5", t:14.25, d:0.25}, {n:"E5", t:14.5, d:0.25}, {n:"D5", t:14.75, d:0.25},
+  {n:"C#5", t:15.0, d:0.25}, {n:"B4", t:15.25, d:0.25}, {n:"A4", t:15.5, d:0.25}, {n:"G4", t:15.75, d:0.25},
+  {n:"F#4", t:16.0, d:0.8}, {n:"A4", t:17.0, d:0.8},
+  {n:"D5", t:18.0, d:0.5}, {n:"F#5", t:18.5, d:0.5}, {n:"A5", t:19.0, d:0.8},
+  {n:"A5", t:20.0, d:0.5}, {n:"G5", t:20.5, d:0.5}, {n:"F#5", t:21.0, d:0.5}, {n:"E5", t:21.5, d:0.5},
+  {n:"D5", t:22.0, d:0.5}, {n:"C#5", t:22.5, d:0.5}, {n:"B4", t:23.0, d:0.5}, {n:"A4", t:23.5, d:0.5},
+  {n:"G4", t:24.0, d:0.5}, {n:"B4", t:24.5, d:0.5}, {n:"D5", t:25.0, d:0.5}, {n:"G5", t:25.5, d:0.5},
+  {n:"B5", t:26.0, d:0.8}, {n:"B5", t:27.0, d:0.5}, {n:"A5", t:27.5, d:0.5},
+  {n:"G5", t:28.0, d:0.5}, {n:"F#5", t:28.5, d:0.5}, {n:"E5", t:29.0, d:0.5}, {n:"D5", t:29.5, d:0.5},
+  {n:"C#5", t:30.0, d:0.5}, {n:"B4", t:30.5, d:0.5}, {n:"A4", t:31.0, d:0.5}, {n:"F#4", t:31.5, d:0.5}
+];
+
+var scorePart3 = [ // 第2Vn (ハモり)
+  {n:"G3", t:0.0, d:0.8}, {n:"D3", t:1.0, d:0.8},
+  {n:"G3", t:2.0, d:0.5}, {n:"D3", t:2.5, d:0.5}, {n:"G3", t:3.0, d:0.5}, {n:"B3", t:3.5, d:0.5},
+  {n:"B3", t:4.0, d:0.8}, {n:"G3", t:5.0, d:0.8},
+  {n:"B3", t:6.0, d:0.5}, {n:"G3", t:6.5, d:0.5}, {n:"B3", t:7.0, d:0.5}, {n:"D4", t:7.5, d:0.5},
+  {n:"C#4", t:8.0, d:0.8}, {n:"A3", t:9.0, d:0.8},
+  {n:"C#4", t:10.0, d:0.5}, {n:"A3", t:10.5, d:0.5}, {n:"C#4", t:11.0, d:0.5}, {n:"E4", t:11.5, d:0.5},
+  {n:"A4", t:12.0, d:0.8}, {n:"E4", t:13.0, d:0.8},
+  {n:"E5", t:14.0, d:0.25}, {n:"D5", t:14.25, d:0.25}, {n:"C#5", t:14.5, d:0.25}, {n:"B4", t:14.75, d:0.25},
+  {n:"A4", t:15.0, d:0.25}, {n:"G4", t:15.25, d:0.25}, {n:"F#4", t:15.5, d:0.25}, {n:"E4", t:15.75, d:0.25},
+  {n:"D4", t:16.0, d:0.8}, {n:"F#4", t:17.0, d:0.8},
+  {n:"A4", t:18.0, d:0.5}, {n:"D5", t:18.5, d:0.5}, {n:"F#5", t:19.0, d:0.8},
+  {n:"F#5", t:20.0, d:0.5}, {n:"E5", t:20.5, d:0.5}, {n:"D5", t:21.0, d:0.5}, {n:"C#5", t:21.5, d:0.5},
+  {n:"B4", t:22.0, d:0.5}, {n:"A4", t:22.5, d:0.5}, {n:"G4", t:23.0, d:0.5}, {n:"F#4", t:23.5, d:0.5},
+  {n:"G3", t:24.0, d:0.5}, {n:"B3", t:24.5, d:0.5}, {n:"D4", t:25.0, d:0.5}, {n:"G4", t:25.5, d:0.5},
+  {n:"G4", t:26.0, d:0.8}, {n:"G4", t:27.0, d:0.5}, {n:"F#4", t:27.5, d:0.5},
+  {n:"E4", t:28.0, d:0.5}, {n:"D4", t:28.5, d:0.5}, {n:"C#4", t:29.0, d:0.5}, {n:"B3", t:29.5, d:0.5},
+  {n:"A3", t:30.0, d:0.5}, {n:"G3", t:30.5, d:0.5}, {n:"G3", t:31.0, d:0.5}, {n:"D3", t:31.5, d:0.5}
+];
+
+var scorePart4 = [ // ヴィオラ (刻み)
+  {n:"G3", t:0.0, d:0.8}, {n:"D3", t:1.0, d:0.8},
+  {n:"G3", t:2.0, d:0.5}, {n:"D3", t:2.5, d:0.5}, {n:"G3", t:3.0, d:0.5}, {n:"B3", t:3.5, d:0.5},
+  {n:"B3", t:4.0, d:0.8}, {n:"G3", t:5.0, d:0.8},
+  {n:"B3", t:6.0, d:0.5}, {n:"G3", t:6.5, d:0.5}, {n:"B3", t:7.0, d:0.5}, {n:"D4", t:7.5, d:0.5},
+  {n:"A3", t:8.0, d:0.8}, {n:"E3", t:9.0, d:0.8},
+  {n:"A3", t:10.0, d:0.5}, {n:"E3", t:10.5, d:0.5}, {n:"A3", t:11.0, d:0.5}, {n:"C#4", t:11.5, d:0.5},
+  {n:"C#4", t:12.0, d:0.8}, {n:"A3", t:13.0, d:0.8},
+  {n:"A3", t:14.0, d:0.5}, {n:"A3", t:14.5, d:0.5}, {n:"C#4", t:15.0, d:0.5}, {n:"C#4", t:15.5, d:0.5},
+  {n:"F#3", t:16.0, d:0.4}, {n:"F#3", t:16.5, d:0.4}, {n:"F#3", t:17.0, d:0.4}, {n:"F#3", t:17.5, d:0.4},
+  {n:"G3", t:18.0, d:0.4}, {n:"G3", t:18.5, d:0.4}, {n:"G3", t:19.0, d:0.4}, {n:"G3", t:19.5, d:0.4},
+  {n:"F#3", t:20.0, d:0.4}, {n:"F#3", t:20.5, d:0.4}, {n:"F#3", t:21.0, d:0.4}, {n:"F#3", t:21.5, d:0.4},
+  {n:"E3", t:22.0, d:0.4}, {n:"E3", t:22.5, d:0.4}, {n:"E3", t:23.0, d:0.4}, {n:"E3", t:23.5, d:0.4},
+  {n:"G3", t:24.0, d:0.4}, {n:"G3", t:24.5, d:0.4}, {n:"G3", t:25.0, d:0.4}, {n:"G3", t:25.5, d:0.4},
+  {n:"G3", t:26.0, d:0.4}, {n:"G3", t:26.5, d:0.4}, {n:"G3", t:27.0, d:0.4}, {n:"G3", t:27.5, d:0.4},
+  {n:"A3", t:28.0, d:0.4}, {n:"A3", t:28.5, d:0.4}, {n:"A3", t:29.0, d:0.4}, {n:"A3", t:29.5, d:0.4},
+  {n:"A3", t:30.0, d:0.4}, {n:"A3", t:30.5, d:0.4}, {n:"F#3", t:31.0, d:0.4}, {n:"D3", t:31.5, d:0.4}
+];
+
+var scores = [scorePart1, scorePart2, scorePart3, scorePart4];
+
 function getActiveNoteFreq() {
-  if (t0 === null) return 0;
+  if (t0 === null || side < 0 || side > 3) return 0;
   var elapsed = Date.now() - t0;
   var beat = (elapsed % 16000) / 500;
   
-  if (side === 0) {
-    // 伴奏 (Part 1)
-    for (var i = 0; i < harmonyScore.length; i++) {
-      var note = harmonyScore[i];
-      if (beat >= note.t && beat < note.t + 0.5) {
-        if (beat - note.t < 0.44) {
-          return NOTE_FREQS[note.n];
-        }
-      }
-    }
-  } else {
-    // メロディ (Part 2, 3, 4)
-    var delayBeats = 0;
-    if (side === 2) delayBeats = 8;
-    else if (side === 3) delayBeats = 16;
+  var score = scores[side];
+  if (!score) return 0;
+  
+  for (var i = 0; i < score.length; i++) {
+    var note = score[i];
+    var duration = note.d || 0.25;
     
-    for (var i = 0; i < canonMelody.length; i++) {
-      var note = canonMelody[i];
-      var shiftedBeat = (note.t + delayBeats) % 32;
-      var duration = note.d || 0.25;
-      
-      var start = shiftedBeat;
-      var end = shiftedBeat + duration;
-      
-      var match = false;
-      if (end <= 32) {
-        match = (beat >= start && beat < end);
-      } else {
-        match = (beat >= start && beat < 32) || (beat >= 0 && beat < end - 32);
-      }
-      
-      if (match) {
-        var localTime;
-        if (beat >= start) {
-          localTime = beat - start;
-        } else {
-          localTime = beat + 32 - start;
-        }
-        if (localTime < duration - 0.05) {
-          return NOTE_FREQS[note.n];
-        }
+    var start = note.t;
+    var end = note.t + duration;
+    
+    var match = (beat >= start && beat < end);
+    
+    if (match) {
+      var localTime = beat - start;
+      if (localTime < duration - 0.06) {
+        return NOTE_FREQS[note.n];
       }
     }
   }
@@ -301,36 +282,23 @@ function playNoteAt(freq, time, duration) {
 }
 
 function scheduleMusic(loopIndex) {
+  if (side < 0 || side > 3) return;
   var loopDuration = 16.0; // 16秒で1ループ (32拍)
   var loopStartRealTime = t0 + loopIndex * loopDuration * 1000 + delayOffset;
   
-  // スピーカー出力の遅延（outputLatency / baseLatency）を引いて物理的な音の発生タイミングを補正
   var a = ac();
   var outLat = a.outputLatency || a.baseLatency || 0.015;
   var loopStartAcTime = a.currentTime + (loopStartRealTime - Date.now()) / 1000 - outLat;
   
-  if (side === 0) {
-    // 伴奏 (Part 1)
-    harmonyScore.forEach(function(note) {
-      var f = NOTE_FREQS[note.n];
-      var st = loopStartAcTime + note.t * 0.5;
-      var d = 0.22;
-      playNoteAt(f, st, d);
-    });
-  } else {
-    // メロディ (Part 2, 3, 4)
-    var delayBeats = 0;
-    if (side === 2) delayBeats = 8;
-    else if (side === 3) delayBeats = 16;
-    
-    canonMelody.forEach(function(note) {
-      var f = NOTE_FREQS[note.n];
-      var shiftedBeat = (note.t + delayBeats) % 32;
-      var st = loopStartAcTime + shiftedBeat * 0.5;
-      var d = (note.d || 0.25) * 0.5 - 0.05;
-      playNoteAt(f, st, d);
-    });
-  }
+  var score = scores[side];
+  if (!score) return;
+  
+  score.forEach(function(note) {
+    var f = NOTE_FREQS[note.n];
+    var st = loopStartAcTime + note.t * 0.5;
+    var d = note.d * 0.5 - 0.03; // 実秒数にして、30msのリリース時間を確保
+    playNoteAt(f, st, d);
+  });
 }
 
 function stopAllNotes() {
@@ -719,10 +687,10 @@ function showSetup(m) {
     document.getElementById("btnP4").innerHTML = "④ 右端";
     statusEl.textContent="① 画面の位置を選んでください";
   } else {
-    document.getElementById("btnP1").innerHTML = "① 伴奏";
-    document.getElementById("btnP2").innerHTML = "② カノン1";
-    document.getElementById("btnP3").innerHTML = "③ カノン2";
-    document.getElementById("btnP4").innerHTML = "④ カノン3";
+    document.getElementById("btnP1").innerHTML = "① チェロ (ベース)";
+    document.getElementById("btnP2").innerHTML = "② 第1Vn (主旋律)";
+    document.getElementById("btnP3").innerHTML = "③ 第2Vn (ハモり)";
+    document.getElementById("btnP4").innerHTML = "④ ヴィオラ (刻み)";
     statusEl.textContent="① パートを選んでください";
   }
   
