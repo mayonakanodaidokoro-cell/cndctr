@@ -16,17 +16,60 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
 #btnL{color:#f96;border-color:#f96}
 #btnR{color:#6bf;border-color:#6bf}
 #btnListen{color:#9cf;border-color:#9cf}
+#btnReset{color:#ff9eb5;border-color:#ff9eb5}
+#btnCancel{color:#999;border-color:#555}
 .sel{background:rgba(120,170,255,0.2)!important;transform:scale(1.05)}
 .off{opacity:0.3;pointer-events:none}
-.hidden{display:none}
+.hidden{display:none !important}
 #meter{width:180px;height:8px;background:#111;border-radius:3px;overflow:hidden;position:relative}
 #mbar{height:100%;width:0%;background:linear-gradient(90deg,#9cf,#9f9,#fc6,#f66)}
 #thresh{position:absolute;top:0;height:100%;width:2px;background:#f44;left:8%}
+
+/* メニュー画面のスタイル */
+#menuView{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at center,#16162a 0%,#0d0d1a 100%);z-index:10;transition:opacity 0.4s ease}
+.menu-title{font-size:42px;font-weight:bold;letter-spacing:0.25em;color:#fff;text-shadow:0 0 24px rgba(153,204,255,0.4);margin-bottom:8px}
+.menu-subtitle{font-size:10px;letter-spacing:0.18em;color:#778;margin-bottom:48px;text-align:center;line-height:1.6}
+.menu-cards{display:flex;flex-direction:column;gap:20px;width:100%;max-width:340px}
+.menu-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:24px;cursor:pointer;transition:all 0.25s cubic-bezier(0.25,1,0.5,1);display:flex;flex-direction:column;gap:8px;-webkit-tap-highlight-color:transparent;user-select:none}
+.menu-card:hover, .menu-card:active{background:rgba(255,255,255,0.07);transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,0.4)}
+.card-header{display:flex;align-items:center;gap:12px}
+.card-icon{font-size:24px}
+.card-title{font-size:16px;font-weight:bold;letter-spacing:0.05em}
+.card-desc{font-size:11px;color:#889;line-height:1.6;letter-spacing:0.02em}
+
+#cardMoving:hover, #cardMoving:active{border-color:rgba(255,153,96,0.4);box-shadow:0 12px 35px rgba(255,153,96,0.12)}
+#cardMoving .card-title{color:#ffb380}
+#cardSinging:hover, #cardSinging:active{border-color:rgba(153,204,255,0.4);box-shadow:0 12px 35px rgba(153,204,255,0.12)}
+#cardSinging .card-title{color:#b3d9ff}
 </style>
 </head>
 <body>
 <div id=stage><canvas id=C></canvas></div>
-<div id=panel>
+
+<!-- メインメニュービュー -->
+<div id="menuView">
+  <div class="menu-title">CNDCTR</div>
+  <div class="menu-subtitle">2台のスマホを同期させる音と光の実験</div>
+  <div class="menu-cards">
+    <div class="menu-card" id="cardMoving">
+      <div class="card-header">
+        <span class="card-icon">🏃</span>
+        <span class="card-title">Moving Mode</span>
+      </div>
+      <div class="card-desc">オブジェクトが画面の境界を越えて左右に往復移動するアニメーション。</div>
+    </div>
+    <div class="menu-card" id="cardSinging">
+      <div class="card-header">
+        <span class="card-icon">🎵</span>
+        <span class="card-title">Singing Mode</span>
+      </div>
+      <div class="card-desc">2台のスマホがメロディと伴奏をハモり奏でる、美しくシンクロした音楽演奏。</div>
+    </div>
+  </div>
+</div>
+
+<!-- 同期設定・操作用パネル -->
+<div id=panel class="hidden">
   <div id=elapsed></div>
   <div id=meter class=hidden><div id=mbar></div><div id=thresh></div></div>
   <div id=status>① 画面の左右を選んでください</div>
@@ -36,17 +79,29 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width
   </div>
   <div class=row id=syncRow>
     <button class=btn id=btnListen>&#127908; 待機</button>
+    <button class=btn id=btnCancel>戻る</button>
+  </div>
+  <div class="row hidden" id=resetRow>
+    <button class=btn id=btnReset>&#8634; メニューに戻る</button>
   </div>
 </div>
+
 <script>
 var S="0000111111000000000111111110000000111111111100000111111111111000011511111151100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000000001111000000000001111110000000001111111100000001111111111000001111511511110000111331111331000011133111133100001111114411110000111111111111000001111111111000000011111111000000000111111000000000001111000000000000011000000000000000000000000000000000000000000000000000000000000111111000000001111111111000001111111111111001115111111511110011331111113310001133111111331000111111441111100011111111111110000111111111110000001111111110000000011111100000000000111100000000000000000000000000000000000000000000000000000000000011110000000000011111100000000011111111000000011111111110000011115115111100001113311113310000111331111331000011111144111100001111111111110000011111111110000000111111110000000001111110000000000011110000000000000110000000000000000000000000000000000000000";
 var COLORS=["","#ffd84d","#f0b429","#1a1a2a","#ff9eb5","#fff7cc"];
 var SW=16,SH=16;
 var cv=document.getElementById("C"),ctx=cv.getContext("2d");
 var W,H,SC;
-var t0=null,listening=false,side=-1;
-var THRESHOLD=0.10; // ピーク絶対値に対する閾値 (0.0 〜 1.0)
+var t0=null,listening=false,side=-1,micStream=null;
+var THRESHOLD=0.10; // ピーク絶対値に対する閾値
 var statusEl=document.getElementById("status");
+var mode="menu"; // "menu", "moving", "singing"
+
+// Singingモードの音響用グローバル変数
+var activeOscillators=[];
+var scheduledLoops=0;
+var pulse=0; // 歌唱時のキャラクターの脈動用
+var particles=[]; // 音符パーティクル
 
 function resize(){
   W=window.innerWidth;H=window.innerHeight;
@@ -65,6 +120,145 @@ function setSide(s){
 document.getElementById("btnL").addEventListener("click",function(){setSide(0);});
 document.getElementById("btnR").addEventListener("click",function(){setSide(1);});
 
+// ── 音楽データ（きらきら星） ──
+var NOTE_FREQS = {
+  "B2": 123.47,
+  "C3": 130.81, "D3": 146.83, "E3": 164.81, "F3": 174.61, "G3": 196.00, "A3": 220.00, "B3": 246.94,
+  "C4": 261.63, "D4": 293.66, "E4": 329.63, "F4": 349.23, "G4": 392.00, "A4": 440.00, "B4": 493.88,
+  "C5": 523.25, "D5": 587.33, "E5": 659.25, "F5": 698.46, "G5": 783.99, "A5": 880.00, "B5": 987.77
+};
+// 1拍 = 500ms (120 BPM)
+// メロディ (左画面)
+var melodyScore = [
+  {n:"C4", t:0}, {n:"C4", t:1}, {n:"G4", t:2}, {n:"G4", t:3}, {n:"A4", t:4}, {n:"A4", t:5}, {n:"G4", t:6, d:2},
+  {n:"F4", t:8}, {n:"F4", t:9}, {n:"E4", t:10}, {n:"E4", t:11}, {n:"D4", t:12}, {n:"D4", t:13}, {n:"C4", t:14, d:2},
+  {n:"G4", t:16}, {n:"G4", t:17}, {n:"F4", t:18}, {n:"F4", t:19}, {n:"E4", t:20}, {n:"E4", t:21}, {n:"D4", t:22, d:2},
+  {n:"G4", t:24}, {n:"G4", t:25}, {n:"F4", t:26}, {n:"F4", t:27}, {n:"E4", t:28}, {n:"E4", t:29}, {n:"D4", t:30, d:2},
+  {n:"C4", t:32}, {n:"C4", t:33}, {n:"G4", t:34}, {n:"G4", t:35}, {n:"A4", t:36}, {n:"A4", t:37}, {n:"G4", t:38, d:2},
+  {n:"F4", t:40}, {n:"F4", t:41}, {n:"E4", t:42}, {n:"E4", t:43}, {n:"D4", t:44}, {n:"D4", t:45}, {n:"C4", t:46, d:2}
+];
+// 伴奏 (右画面 - 1拍に2音のアルペジオ)
+var harmonyScore = [
+  {n:"C3", t:0}, {n:"E3", t:0.5}, {n:"G3", t:1}, {n:"E3", t:1.5},
+  {n:"G3", t:2}, {n:"B3", t:2.5}, {n:"D4", t:3}, {n:"B3", t:3.5},
+  {n:"A3", t:4}, {n:"C4", t:4.5}, {n:"E4", t:5}, {n:"C4", t:5.5},
+  {n:"G3", t:6}, {n:"B3", t:6.5}, {n:"D4", t:7}, {n:"B3", t:7.5},
+  {n:"F3", t:8}, {n:"A3", t:8.5}, {n:"C4", t:9}, {n:"A3", t:9.5},
+  {n:"C3", t:10}, {n:"E3", t:10.5}, {n:"G3", t:11}, {n:"E3", t:11.5},
+  {n:"D3", t:12}, {n:"F3", t:12.5}, {n:"A3", t:13}, {n:"F3", t:13.5},
+  {n:"C3", t:14}, {n:"E3", t:14.5}, {n:"G3", t:15}, {n:"E3", t:15.5},
+  
+  {n:"G3", t:16}, {n:"B3", t:16.5}, {n:"D4", t:17}, {n:"B3", t:17.5},
+  {n:"F3", t:18}, {n:"A3", t:18.5}, {n:"C4", t:19}, {n:"A3", t:19.5},
+  {n:"E3", t:20}, {n:"G3", t:20.5}, {n:"C4", t:21}, {n:"G3", t:21.5},
+  {n:"D3", t:22}, {n:"F3", t:22.5}, {n:"A3", t:23}, {n:"F3", t:23.5},
+  
+  {n:"G3", t:24}, {n:"B3", t:24.5}, {n:"D4", t:25}, {n:"B3", t:25.5},
+  {n:"F3", t:26}, {n:"A3", t:26.5}, {n:"C4", t:27}, {n:"A3", t:27.5},
+  {n:"E3", t:28}, {n:"G3", t:28.5}, {n:"C4", t:29}, {n:"G3", t:29.5},
+  {n:"D3", t:30}, {n:"F3", t:30.5}, {n:"A3", t:31}, {n:"F3", t:31.5},
+  
+  {n:"C3", t:32}, {n:"E3", t:32.5}, {n:"G3", t:33}, {n:"E3", t:33.5},
+  {n:"G3", t:34}, {n:"B3", t:34.5}, {n:"D4", t:35}, {n:"B3", t:35.5},
+  {n:"A3", t:36}, {n:"C4", t:36.5}, {n:"E4", t:37}, {n:"C4", t:37.5},
+  {n:"G3", t:38}, {n:"B3", t:38.5}, {n:"D4", t:39}, {n:"B3", t:39.5},
+  {n:"F3", t:40}, {n:"A3", t:40.5}, {n:"C4", t:41}, {n:"A3", t:41.5},
+  {n:"C3", t:42}, {n:"E3", t:42.5}, {n:"G3", t:43}, {n:"E3", t:43.5},
+  {n:"D3", t:44}, {n:"F3", t:44.5}, {n:"A3", t:45}, {n:"F3", t:45.5},
+  {n:"C3", t:46}, {n:"E3", t:46.5}, {n:"G3", t:47}, {n:"E3", t:47.5}
+];
+
+function getActiveNoteFreq() {
+  if (t0 === null) return 0;
+  var beat = ((Date.now() - t0) % 24000) / 500;
+  if (side === 0) {
+    for (var i = 0; i < melodyScore.length; i++) {
+      var note = melodyScore[i];
+      var duration = note.d || 1;
+      if (beat >= note.t && beat < note.t + duration) {
+        if (beat - note.t < duration - 0.1) {
+          return NOTE_FREQS[note.n];
+        }
+      }
+    }
+  } else if (side === 1) {
+    for (var i = 0; i < harmonyScore.length; i++) {
+      var note = harmonyScore[i];
+      if (beat >= note.t && beat < note.t + 0.5) {
+        if (beat - note.t < 0.44) {
+          return NOTE_FREQS[note.n];
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+function playNoteAt(freq, time, duration) {
+  var a = ac();
+  if (time < a.currentTime) {
+    var diff = a.currentTime - time;
+    if (diff < duration) {
+      time = a.currentTime;
+      duration = duration - diff;
+    } else {
+      return;
+    }
+  }
+  
+  var osc = a.createOscillator();
+  var gain = a.createGain();
+  
+  osc.type = "triangle"; // 温かみのある柔らかい音
+  osc.frequency.value = freq;
+  
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(0.25, time + 0.02); // 立ち上がり
+  gain.gain.setValueAtTime(0.25, time + duration - 0.04);
+  gain.gain.linearRampToValueAtTime(0, time + duration); // 立ち下がり
+  
+  osc.connect(gain);
+  gain.connect(a.destination);
+  
+  osc.start(time);
+  osc.stop(time + duration);
+  
+  activeOscillators.push({osc: osc, gain: gain, stopTime: time + duration});
+}
+
+function scheduleMusic(loopIndex) {
+  var loopDuration = 24.0; // 24秒で1ループ
+  var loopStartRealTime = t0 + loopIndex * loopDuration * 1000;
+  var loopStartAcTime = ac().currentTime + (loopStartRealTime - Date.now()) / 1000;
+  
+  if (side === 0) {
+    melodyScore.forEach(function(note) {
+      var f = NOTE_FREQS[note.n];
+      var st = loopStartAcTime + note.t * 0.5;
+      var d = (note.d || 1) * 0.5 - 0.05;
+      playNoteAt(f, st, d);
+    });
+  } else if (side === 1) {
+    harmonyScore.forEach(function(note) {
+      var f = NOTE_FREQS[note.n];
+      var st = loopStartAcTime + note.t * 0.5;
+      var d = 0.22;
+      playNoteAt(f, st, d);
+    });
+  }
+}
+
+function stopAllNotes() {
+  activeOscillators.forEach(function(item) {
+    try {
+      item.osc.stop();
+      item.osc.disconnect();
+      item.gain.disconnect();
+    } catch(e) {}
+  });
+  activeOscillators = [];
+}
+
 // ── 描画ループ ──
 var CYCLE=4000;
 function draw(){
@@ -73,23 +267,164 @@ function draw(){
   sky.addColorStop(0,"#0d0d1a");sky.addColorStop(1,"#16182e");
   ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
 
+  // メインメニュー時の背景演出 (微細なパーティクル)
+  if (mode === "menu") {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+    for (var i = 0; i < 20; i++) {
+      var px = (Math.sin(Date.now() / 2000 + i) * 0.5 + 0.5) * W;
+      var py = ((Date.now() / 15 + i * 50) % H);
+      ctx.beginPath();
+      ctx.arc(px, py, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
   if(t0!==null && side>=0){
     var n=Date.now()-t0;
-    var bw=SW*SC;
-    var tt=(n%CYCLE)/CYCLE;
-    var tri=tt<0.5?tt*2:2-tt*2;
-    var eased=tri<0.5?2*tri*tri:1-Math.pow(-2*tri+2,2)/2;
-    var span=2*W-bw;
-    var gx=Math.floor(eased*span);
-    var goingRight=tt<0.5;
-    var gy=Math.floor(H*0.4+Math.sin(n/500*Math.PI*2)*H*0.05);
-    var f=Math.floor(n/120)%4;
-    var lx=side===1?gx-W:gx;
-    for(var r=0;r<SH;r++)for(var c=0;c<SW;c++){
-      var sc=goingRight?c:(SW-1-c);
-      var v=+S[f*SW*SH+r*SW+sc];
-      if(v){ctx.fillStyle=COLORS[v];ctx.fillRect(lx+c*SC,gy+r*SC,SC,SC);}
+    
+    if (mode === "moving") {
+      // ── Moving Mode ──
+      var bw=SW*SC;
+      var tt=(n%CYCLE)/CYCLE;
+      var tri=tt<0.5?tt*2:2-tt*2;
+      var eased=tri<0.5?2*tri*tri:1-Math.pow(-2*tri+2,2)/2;
+      var span=2*W-bw;
+      var gx=Math.floor(eased*span);
+      var goingRight=tt<0.5;
+      var gy=Math.floor(H*0.4+Math.sin(n/500*Math.PI*2)*H*0.05);
+      var f=Math.floor(n/120)%4;
+      var lx=side===1?gx-W:gx;
+      for(var r=0;r<SH;r++)for(var c=0;c<SW;c++){
+        var sc=goingRight?c:(SW-1-c);
+        var v=+S[f*SW*SH+r*SW+sc];
+        if(v){ctx.fillStyle=COLORS[v];ctx.fillRect(lx+c*SC,gy+r*SC,SC,SC);}
+      }
+    } else if (mode === "singing") {
+      // ── Singing Mode ──
+      // 高精度ループスケジューラ
+      var currentLoop = Math.floor(n / 24000);
+      if (currentLoop + 1 >= scheduledLoops) {
+        scheduleMusic(scheduledLoops);
+        scheduledLoops++;
+      }
+
+      // 現在再生されている音を元に、脈動係数を調整
+      var activeFreq = getActiveNoteFreq();
+      if (activeFreq > 0) {
+        pulse += (1.0 - pulse) * 0.25;
+      } else {
+        pulse += (0.0 - pulse) * 0.12;
+      }
+
+      var cx = W / 2, cy = H * 0.45;
+      var baseR = Math.max(50, Math.min(W, H) * 0.12);
+      var r = baseR + pulse * 24;
+
+      // 歌うキャラクターの描画 (Vector Face)
+      ctx.save();
+      // 光彩エフェクト
+      ctx.shadowBlur = 24 + pulse * 32;
+      if (side === 0) {
+        ctx.shadowColor = "#f96";
+        ctx.fillStyle = "rgba(255, 153, 96, 0.9)";
+      } else {
+        ctx.shadowColor = "#6bf";
+        ctx.fillStyle = "rgba(102, 187, 255, 0.9)";
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+
+      // 目
+      var eyeSpacing = r * 0.4;
+      var eyeY = cy - r * 0.15;
+      var eyeSize = r * 0.12;
+      var isBlinking = (Math.floor(Date.now() / 4500) % 2 === 0) && (Date.now() % 4500 < 150);
+
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 5;
+      
+      if (isBlinking) {
+        // 瞬き時：横線
+        ctx.beginPath();
+        ctx.moveTo(cx - eyeSpacing - eyeSize, eyeY);
+        ctx.lineTo(cx - eyeSpacing + eyeSize, eyeY);
+        ctx.moveTo(cx + eyeSpacing - eyeSize, eyeY);
+        ctx.lineTo(cx + eyeSpacing + eyeSize, eyeY);
+        ctx.stroke();
+      } else {
+        // 通常時：丸目
+        ctx.beginPath();
+        ctx.arc(cx - eyeSpacing, eyeY, eyeSize, 0, Math.PI*2);
+        ctx.arc(cx + eyeSpacing, eyeY, eyeSize, 0, Math.PI*2);
+        ctx.fill();
+        // 瞳のハイライト
+        ctx.fillStyle = "#0d0d1a";
+        ctx.beginPath();
+        ctx.arc(cx - eyeSpacing + eyeSize*0.2, eyeY - eyeSize*0.2, eyeSize*0.4, 0, Math.PI*2);
+        ctx.arc(cx + eyeSpacing - eyeSize*0.2, eyeY - eyeSize*0.2, eyeSize*0.4, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // 口
+      var mouthY = cy + r * 0.2;
+      if (pulse > 0.05) {
+        // 歌っている時：大きく開く
+        var mouthR = pulse * (r * 0.35);
+        ctx.fillStyle = "#0d0d1a";
+        ctx.beginPath();
+        ctx.arc(cx, mouthY, mouthR, 0, Math.PI*2);
+        ctx.fill();
+        // 舌
+        ctx.fillStyle = "#ff9eb5";
+        ctx.beginPath();
+        ctx.arc(cx, mouthY + mouthR * 0.3, mouthR * 0.7, 0, Math.PI);
+        ctx.fill();
+      } else {
+        // 休止時：にっこり口
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(cx, cy + r * 0.05, r * 0.25, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+      }
+
+      // 音符パーティクルの発生
+      if (activeFreq > 0 && Math.random() < 0.12) {
+        particles.push({
+          x: cx + (Math.random() - 0.5) * 30,
+          y: cy - r,
+          vx: (Math.random() - 0.5) * 3,
+          vy: -2 - Math.random() * 3,
+          text: ["♫", "♪", "♩"][Math.floor(Math.random() * 3)],
+          size: 14 + Math.random() * 12,
+          alpha: 1.0
+        });
+      }
+
+      // パーティクルの描画と更新
+      for (var i = particles.length - 1; i >= 0; i--) {
+        var p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.alpha -= 0.025;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+        } else {
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.font = "bold " + p.size + "px sans-serif";
+          ctx.fillStyle = side === 0 ? "#ffb380" : "#b3d9ff";
+          ctx.shadowColor = side === 0 ? "#f96" : "#6bf";
+          ctx.shadowBlur = 10;
+          ctx.fillText(p.text, p.x, p.y);
+          ctx.restore();
+        }
+      }
     }
+
     // 経過時間
     var ms=n%1000,s=Math.floor(n/1000)%60,m=Math.floor(n/60000);
     document.getElementById("elapsed").textContent=("0"+m).slice(-2)+":"+("0"+s).slice(-2)+"."+("00"+ms).slice(-3);
@@ -112,6 +447,7 @@ function startMic(){
   return navigator.mediaDevices.getUserMedia({
     audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false
   }).then(function(stream){
+    micStream = stream;
     var a=ac();
     var src=a.createMediaStreamSource(stream);
     
@@ -163,7 +499,7 @@ function startMic(){
           state = 1;
           t1 = now;
           coolDownUntil = now + 100; // 最低100msのクールダウン
-          statusEl.textContent = "1回目の拍手を検出！\n音の減衰を待っています...";
+          statusEl.textContent = "1回目の拍力を検出！\n音の減衰を待っています...";
         }
       } else if (state === 1) {
         // 1回目の拍手の音が静まるのを待つ（チャタリングによる2回目誤検知を完全に防止）
@@ -179,8 +515,9 @@ function startMic(){
             done=true;
             listening=false;
             t0=now; // 2回目の拍手のタイミングで同期開始
+            scheduledLoops=0;
             
-            // 間隔に合わせてスピード判定（3段階）
+            // 間隔に合わせてスピード判定（3段階、Moving Mode用）
             var speedName = "";
             if (interval < 600) {
               CYCLE = 2000;
@@ -194,10 +531,12 @@ function startMic(){
             }
             
             stream.getTracks().forEach(function(t){t.stop();});
+            micStream = null;
             statusEl.textContent="⚡ 同期完了！\n間隔: "+interval+"ms (スピード: "+speedName+")\n2画面を並べてね";
             document.getElementById("meter").classList.add("hidden");
             document.getElementById("sideRow").classList.add("hidden");
             document.getElementById("syncRow").classList.add("hidden");
+            document.getElementById("resetRow").classList.remove("hidden");
           } else {
             // 例外処理（タイムアウト等）
             state = 0;
@@ -215,11 +554,58 @@ function startMic(){
   });
 }
 
+// ── メニュー画面遷移 ──
+function showSetup(m) {
+  mode = m;
+  document.getElementById("menuView").classList.add("hidden");
+  document.getElementById("panel").classList.remove("hidden");
+  
+  // 各ステート初期化
+  t0 = null;
+  side = -1;
+  listening = false;
+  document.getElementById("btnL").className="btn";
+  document.getElementById("btnR").className="btn";
+  document.getElementById("btnListen").className="btn";
+  document.getElementById("elapsed").textContent="";
+  statusEl.textContent="① 画面の左右を選んでください";
+  document.getElementById("sideRow").classList.remove("hidden");
+  document.getElementById("syncRow").classList.remove("hidden");
+  document.getElementById("resetRow").classList.add("hidden");
+  document.getElementById("meter").classList.add("hidden");
+}
+
+function returnToMenu() {
+  mode = "menu";
+  t0 = null;
+  listening = false;
+  side = -1;
+  stopAllNotes();
+  if (micStream) {
+    micStream.getTracks().forEach(function(t){t.stop();});
+    micStream = null;
+  }
+  document.getElementById("menuView").classList.remove("hidden");
+  document.getElementById("panel").classList.add("hidden");
+  particles = [];
+}
+
+document.getElementById("cardMoving").addEventListener("click", function() { showSetup("moving"); });
+document.getElementById("cardSinging").addEventListener("click", function() { showSetup("singing"); });
+
 document.getElementById("btnListen").addEventListener("click",function(){
   if(side<0){statusEl.textContent="先に左右を選んでください";return;}
   ac();this.classList.add("off");
   statusEl.textContent="マイク起動中…";
   startMic();
+});
+
+document.getElementById("btnCancel").addEventListener("click", function() {
+  returnToMenu();
+});
+
+document.getElementById("btnReset").addEventListener("click",function(){
+  returnToMenu();
 });
 </script>
 </body>
